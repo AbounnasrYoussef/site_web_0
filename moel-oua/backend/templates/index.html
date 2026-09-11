@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test API</title>
+</head>
+<body>
+    <h1>PathFinder Test</h1>
+    
+    <label>Category ID:</label>
+        <select id="category_id">
+            
+        </select>
+    <br><br>
+    
+    <label>Starting Diploma ID:</label>
+    <select id="starting_diploma_id">
+        
+    </select>
+    <br><br>
+    
+    <button onclick="runTest()">Find Paths</button>
+    
+    <hr>
+    
+    <h3>Response:</h3>
+    <pre id="output"></pre>
+
+    <script>
+
+        async function get_categories()
+        {
+            const category_ele = document.getElementById("category_id")
+            try
+            {
+                const response = await fetch('/api/categories');
+                if(!response.ok){
+                    throw new Error(`${response.status}`)
+                }
+                const data = await response.json();
+                data.forEach((item, array)=>{
+                    const add = `<option value="${item.id}">${item.name}</option>`
+                    category_ele.innerHTML += add
+                    console.log(add)
+                })
+            }
+            catch (error) {
+                console.error('fetch faild', error)
+            }
+        }
+
+        async function get_diplomas()
+        {
+            const ele = document.getElementById("starting_diploma_id")
+            try
+            {
+                const response = await fetch('/api/diplomas')
+                 if(!response.ok){
+                    throw new Error(`${response.status}`)
+                }
+
+                const data = await response.json();
+                data.forEach((item, array)=>{
+                    const add = `<option value="${item.id}">${item.name}</option>`
+                    ele.innerHTML += add
+                    console.log(item)
+                })
+            }
+            catch(error)
+            {
+                console.error('fetch faild', error);
+            }
+        }
+
+        get_categories()
+        get_diplomas()
+        async function runTest() {
+            const categoryId = document.getElementById('category_id').value;
+            const diplomaId = document.getElementById('starting_diploma_id').value;
+            const outputElement = document.getElementById('output');
+            console.log(categoryId)
+            console.log(diplomaId)
+            console.log(outputElement)
+            outputElement.textContent = "Loading...";
+
+            try {
+                const response = await fetch('/api/find-paths', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        category_id: categoryId,
+                        starting_diploma_id: diplomaId
+                    })
+                });
+
+                const data = await response.json();
+                outputElement.textContent = JSON.stringify(data, null, 4);
+            } catch (error) {
+                outputElement.textContent = error;
+            }
+        }
+    </script>
+</body>
+</html>

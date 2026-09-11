@@ -1,0 +1,8 @@
+Flask
+psycopg2-binary
+peewee
+colorama
+flask-admin[peewee]
+flask-admin
+python-dotenv
+flask-cors

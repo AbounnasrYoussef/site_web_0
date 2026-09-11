@@ -1,0 +1,347 @@
+{
+    "logo": "Kharita",
+    "metadata": {
+        "title": "Kharita | Your guide to higher education in Morocco",
+        "description": "Explore Moroccan universities, programs, and opportunities. Find your path with Kharita - by Moroccan students, for Moroccan futures.",
+        "keywords": "Morocco, higher education, universities, orientation, study in Morocco, engineering schools, business schools, architecture, Kharita"
+    },
+    "navbar": {
+        "links": {
+            "map": "Map",
+            "universities": "Universities"
+        },
+        "getStarted": "Get Started",
+        "profile": "Profile",
+        "language": {
+            "en": "EN",
+            "fr": "FR",
+            "ar": "AR"
+        }
+    },
+    "footer": {
+        "phrase": "By Moroccan students, for Moroccan futures.",
+        "links": {
+            "reddit": "Reddit",
+            "supportUs": "Support Us",
+            "privacy": "Privacy"
+        }
+    },
+    "homePage": "By Moroccan students, for Moroccan futures.",
+    "notFound": {
+        "title": "Page not found",
+        "description": "The page you're looking for doesn't exist.",
+        "home": "Go back home"
+    },
+    "register": {
+        "title": "Join\nThe Network.",
+        "subtitle": "THE GATEWAY // INITIALIZING IDENTITY",
+        "continueWithGoogle": "CONTINUE WITH GOOGLE",
+        "orEnterManually": "Or enter manually",
+        "email": {
+            "label": "Email address",
+            "placeholder": "nomad@kharita.io"
+        },
+        "password": {
+            "label": "Password",
+            "placeholder": "••••••••",
+            "helper": "Minimum 8 characters with uppercase, lowercase, a number, and a symbol."
+        },
+        "submit": "INITIALIZE PROTOCOLE",
+        "submitting": "INITIALIZING...",
+        "terms": {
+            "prefix": "By proceeding, you accept the",
+            "link": "Terms of Service",
+            "suffix": "."
+        },
+        "login": {
+            "text": "Already have an account?",
+            "link": "Log in"
+        }
+    },
+    "login": {
+        "title": "ACCESS\nTHE GRID.",
+        "subtitle": "PROTOCOL // AUTHENTICATION",
+        "continueWithGoogle": "CONTINUE WITH GOOGLE",
+        "orEnterManually": "OR ENTER MANUALLY",
+        "email": {
+            "label": "EMAIL ADDRESS",
+            "placeholder": "nomad@kharita.ma"
+        },
+        "password": {
+            "label": "PASSWORD",
+            "placeholder": "••••••••"
+        },
+        "submit": "INITIALIZE LOGIN",
+        "submitting": "INITIALIZING...",
+        "errors": {
+            "invalidCredentials": "Invalid credentials. Please try again."
+        },
+        "unregisteredEntity": "Unregistered entity?",
+        "register": "REGISTER"
+    },
+    "forgotPassword": {
+        "title1": "FORGOT PASSWORD?",
+        "title": "RESET ACCESS",
+        "description": "Lost your credentials in the grid? Provide your primary identifier to initialize the secure recovery sequence.",
+        "rememberPassword": "Remember your password?",
+        "backToLogin": "Back to login",
+        "emailLabel": "Email Address",
+        "emailPlaceholder": "nomad@kharita.ma",
+        "sendResetLink": "INITIALIZE RECOVERY",
+        "sending": "INITIALIZING...",
+        "success": "A password reset link has been sent to your email.",
+        "error": "Something went wrong."
+    },
+    "resetPassword": {
+        "title": "RESET PASSWORD",
+        "description": "Enter your new credentials to regain access to the grid.",
+        "passwordLabel": "New Password",
+        "passwordPlaceholder": "••••••••",
+        "passwordHelper": "8 characters minimum, including uppercase, lowercase, number and symbol.",
+        "confirmPasswordLabel": "Confirm Password",
+        "confirmPasswordPlaceholder": "••••••••",
+        "submit": "UPDATE PASSWORD",
+        "submitting": "UPDATING...",
+        "success": "Password updated successfully. Redirecting to login...",
+        "rememberPassword": "Remember your password?",
+        "backToLogin": "Back to login",
+        "errors": {
+            "missingToken": "Invalid or missing reset token. Please request a new password reset link.",
+            "generic": "Something went wrong. Please try again."
+        },
+        "validation": {
+            "passwordRequired": "Password is required.",
+            "passwordInvalid": "Password must be at least 8 characters and include uppercase, lowercase, a number, and a special character.",
+            "passwordsDoNotMatch": "Passwords do not match."
+        }
+    },
+    "validation": {
+        "emailRequired": "Email is required.",
+        "emailInvalid": "Please enter a valid email address.",
+        "passwordRequired": "Password is required.",
+        "passwordInvalid": "8 characters minimum, including uppercase, lowercase, number and symbol.",
+        "confirmPasswordRequired": "Please confirm your password.",
+        "passwordsDoNotMatch": "Passwords do not match."
+    },
+    "verify2fa": {
+        "title": "VERIFY IDENTITY",
+        "description": "Enter the 6-digit code sent to your email to complete authentication.",
+        "instruction": "Enter the verification code",
+        "verify": "Verify Code",
+        "verifying": "Verifying...",
+        "resendCode": "Resend code",
+        "sending": "Sending...",
+        "backToLogin": "Back to Login",
+        "codeExpiresIn": "Code expires in:",
+        "codeExpired": "Code has expired. Please request a new one.",
+        "tryAgainIn": "You can try again in:",
+        "loading": "Loading...",
+        "requestNewCode": "Request new code",
+        "errors": {
+            "invalidCode": "Please enter a valid 6-digit code.",
+            "missingToken": "Invalid verification session. Please log in again.",
+            "tooManyRequests": "Too many requests. Please wait before trying again.",
+            "generic": "Something went wrong. Please try again.",
+            "sessionExpired": "Your verification session has expired. Please log in again."
+        },
+        "revoke": {
+            "title": "Was this you?",
+            "successTitle": "Account Secured",
+            "description": "If you did not initiate this login, click confirm to revoke all active sessions and secure your account.",
+            "success": "All active sessions have been revoked. You will be redirected to login.",
+            "confirm": "Confirm",
+            "revoking": "Revoking...",
+            "cancel": "Cancel"
+        }
+    },
+    "profile": {
+        "classOf": "Class of",
+        "title": "PROFILE",
+        "role": "Role",
+        "loading": "Loading...",
+        "redirecting": "Redirecting...",
+        "edit": "EDIT PROFILE",
+        "personalInfo": "Personal Information",
+        "firstName": "First Name",
+        "lastName": "Last Name",
+        "email": "Email",
+        "yearOfBirth": "Year of Birth",
+        "academicInfo": "Academic Information",
+        "schoolLevel": "School Level",
+        "middleSchool": "Middle School",
+        "highSchool": "High School",
+        "filiereId": "Filiere ID",
+        "dropout": "Dropout",
+        "yes": "Yes",
+        "no": "No",
+        "highestDiploma": "Highest Diploma",
+        "bacYear": "Bac Year",
+        "bacGrade": "Bac Grade",
+        "regionalNote": "Regional Note",
+        "nationalNote": "National Note",
+        "continuousNote": "Continuous Note",
+        "interests": "Interests & Preferences",
+        "interestedCategories": "Interested Categories",
+        "interestedCities": "Interested Cities",
+        "canAffordPrivate": "Can Afford Private School",
+        "maxBudget": "Max Private Budget",
+        "profilePicture": "Profile picture",
+        "diploma": "Diploma",
+        "diplomaName": "Diploma Name",
+        "diplomaNote": "Grade",
+        "diplomaYear": "Year",
+        "diplomaFields": "Additional Details",
+        "securitySettings": "Security Settings",
+        "2fa": {
+            "remaining": "remaining",
+            "title": "Two-Factor Authentication",
+            "status": "Status:",
+            "enabledStatus": "ENABLED",
+            "disabledStatus": "DISABLED",
+            "enabledDescription": "2FA is currently enabled",
+            "disabledDescription": "2FA is currently disabled",
+            "confirmPassword": "Confirm Password",
+            "passwordPlaceholder": "••••••••",
+            "confirm": "Confirm",
+            "cancel": "Cancel",
+            "enabled": "2FA enabled successfully!",
+            "disabled": "2FA disabled successfully!",
+            "toggleError": "Failed to toggle 2FA",
+            "adminRequired": "2FA is mandatory for admin accounts - cannot be disabled."
+        },
+        "logout": "LOGOUT"
+    },
+    "onboarding": {
+        "stepOf": "Step {step} of {total}",
+        "skipAll": "Skip All Steps",
+        "skipStep": "Skip this step",
+        "next": "Next",
+        "previous": "Previous",
+        "finish": "Finish",
+        "submitting": "INITIALIZING...",
+        "finishedMessage": "Onboarding flow finished — check the console.",
+        "step2": {
+            "firstName": "First name",
+            "lastName": "Last name",
+            "yearOfBirth": "Year of birth",
+            "yearOfBirthPlaceholder": "Choose your birth year",
+            "firstNameError": "First name must be between 2 and 30 characters",
+            "lastNameError": "Last name must be between 2 and 30 characters",
+            "firstNameInvalidChars": "First name contains invalid characters",
+            "lastNameInvalidChars": "Last name contains invalid characters",
+            "yearOfBirthError": "Year of birth must be between 1900 and {year}",
+            "title": "Tell Us About You",
+            "subtitle": "We use this information to personalize your learning experience and ensure your records are accurate.",
+            "firstNamePlaceholder": "John/Jane",
+            "lastNamePlaceholder": "Doe",
+            "footerNote": "You can complete more of your profile anytime from your profile page."
+        },
+        "step3": {
+            "schoolLevel": "School level",
+            "schoolLevelPlaceholder": "What's your current level?",
+            "middleSchool": "Middle School",
+            "highSchool": "High School",
+            "filiere": "Filière",
+            "filierePlaceholder": "Choose your filière",
+            "filiereError": "Invalid filière selection",
+            "dropout": "I left school before the baccalauréat",
+            "dropoutLabel": "I left school before completing my baccalaureat",
+            "diplomaLevel": "Diploma level",
+            "diplomaLevelPlaceholder": "Select your highest diploma level",
+            "levels": {
+                "bac": "Baccalaureate (BAC)",
+                "bacPlus2": "Bac +2 (DEUG/DEUST/DUT/BTS)",
+                "bacPlus3": "Bac +3 (Licence)",
+                "bacPlus5": "Bac +5 (Master/Engineering)",
+                "doctorate": "Doctorate (PhD)"
+            },
+            "diploma": "Diploma",
+            "diplomaPlaceholder": "Choose your diploma",
+            "diplomaYear": "Diploma year",
+            "diplomaDetails": "Diploma Details",
+            "diplomaYearPlaceholder": "Select the year you obtained your diploma",
+            "diplomaYearError": "Diploma year must be between 2000 and {year}",
+            "diplomaNote": "Diploma grade",
+            "gradeError": "Must be between 0 and 20",
+            "invalidNumber": "Please enter a positive integer (1 to 999).",
+            "title": "Your Academic Path",
+            "subtitle": "Define your current level to unlock personalized career mapping.",
+            "skip": "skip"
+        },
+        "step4": {
+            "title": "Final Alignment",
+            "subtitle": "Select your interests and cities to finalize your personalized career map.",
+            "categoriesTitle": "Select your interests (pick 1 or more)"
+        }
+    },
+    "home": {
+        "hero": {
+          "badge": "System Override Initiated",
+          "titleLine1": "Map Your",
+          "titleLine2": "Rebellion.",
+          "description": "Traditional pathways are broken. Kharita is the brutalist compass for the next generation of students. Decode the system, share intel, and forge your own trajectory.",
+          "enterGrid": "Enter the Grid",
+          "viewDossier": "View Dossier"
+        },
+        "trajet": {
+          "title": "Our Trajectories"
+        },
+        "about": {
+          "badge": "About Us",
+          "title": "The Swarm",
+          "quote": "Built by students, for students. A decentralized network of shared academic intelligence.",
+          "description": "We aren't guidance counselors in suits. We are the ones currently navigating the trenches of higher education. Kharita aggregates raw data, personal experiences, and unfiltered advice to help you survive and thrive.",
+          "members": "10k+ Members",
+          "institutions": "50+ Institutions"
+        },
+        "contact": {
+          "badge": "Incoming Signal",
+          "titleLine1": "Open",
+          "titleLine2": "Frequency",
+          "description": "Signal lost? Need to establish a direct connection to the mainframe? Drop your coordinates below. Our operatives are standing by to decode your transmission.",
+          "nameLabel": "Operative Name",
+          "namePlaceholder": "Enter identifier...",
+          "emailLabel": "Comms Link (Email)",
+          "emailPlaceholder": "username@domain.com",
+          "messageLabel": "Transmission Payload",
+          "messagePlaceholder": "Type your message here...",
+          "send": "Send Message"
+        }
+      },
+      "dashboard": {
+        "navbar": {
+            "universities": "universities",
+            "programs": "programs",
+            "users": "users"
+        },
+        "universities": {
+            "totalUniversities": "Total universities",
+            "pendingApproval": "Pending approval",
+            "pendingUniversities": "Pending Universities",
+            "approve": "Approve",
+            "reject": "Reject",
+            "view": "View",
+            "allUniversities": "All Universities",
+            "remove": "Delete"
+        }
+      },
+    "chatbot": {
+        "title": "AI University Orientation Assistant",
+        "greeting": "Hello {userId}! 👋 I'm your AI University Orientation Assistant. Ask me anything about Moroccan universities, schools, or career paths.",
+        "subtitle": "Ask anything about Moroccan universities, schools and career paths.",
+        "reset": "Reset Chat",
+        "placeholder": "Ask a question about universities, schools or career paths...",
+        "send": "Send",
+        "thinking": "Thinking...",
+        "cmdPrompt": "CMD_PROMPT",
+        "moroccanOrientation": "Moroccan Orientation",
+        "title_sug": "Suggested questions",
+        "questions": [
+        "What are the admission requirements?",
+        "What is the difference between EST and FST?",
+        "Can I study computer science after my BAC?",
+        "What opportunities are available after graduation?",
+        "What can I do if I don't get accepted?"
+        ]
+  }
+}

@@ -1,0 +1,1 @@
+export { default, MyMap } from "./map/index";

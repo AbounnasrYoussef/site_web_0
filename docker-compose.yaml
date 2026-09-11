@@ -1,0 +1,134 @@
+services:
+  db:
+    build:
+      context: ./database
+    container_name: database
+    restart: always
+    env_file:
+      - .env
+    ports:
+      - "5432:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    networks:
+      - transcendence_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  dbgate:
+    image: dbgate/dbgate
+    container_name: dbgate
+    restart: always
+    ports:
+      - "8000:3000"
+    networks:
+      - transcendence_network
+    depends_on:
+      db:
+        condition: service_healthy
+
+#---------------zguellou-----------------------
+  zguellou-backend:
+    build:
+      context: ./zguellou/backend
+    container_name: zguellou-backend
+    env_file:
+      - ./zguellou/.env
+      - .env
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./zguellou/backend:/usr/src/app
+      - /usr/src/app/node_modules
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - transcendence_network
+
+#---------------moel-oua-----------------------
+  moel-oua-backend:
+    build:
+      context: ./moel-oua
+    container_name: moel-oua-backend
+    env_file:
+      - ./moel-oua/.env
+      - .env
+    ports:
+      - "5001:5001"
+    volumes:
+      - ./moel-oua/backend:/usr/src/app
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - transcendence_network
+
+#---------------tbenzaid-----------------------
+  tbenzaid-backend:
+    build:
+      context: ./tbenzaid
+    container_name: tbenzaid-backend
+    env_file:
+      - ./tbenzaid/.env
+    ports:
+      - "5002:5002"
+    volumes:
+      - ./tbenzaid/backend:/usr/src/app
+      - ./storage/pdfs:/usr/src/app/pdfs
+      - ./storage/vectorstore:/usr/src/app/vectorstore
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - transcendence_network
+
+#---------------yabounna-----------------------
+  yabounna-backend:
+    build:
+      context: ./yabounna
+    container_name: yabounna-backend
+    env_file:
+      - ./yabounna/.env
+      - .env
+    ports:
+      - "5003:5003"
+    volumes:
+      - ./yabounna/backend:/usr/src/app
+      - ./storage/uploads:/usr/src/app/uploads
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - transcendence_network
+
+#---------------FRONTEND-----------------------
+  frontend:
+    build:
+      context: frontend/
+    container_name: frontend
+    env_file:
+      - .env
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    depends_on:
+      - zguellou-backend
+      - moel-oua-backend
+      - tbenzaid-backend
+    networks:
+      - transcendence_network
+
+networks:
+  transcendence_network:
+    name: transcendence_network
+    driver: bridge
+
+volumes:
+  db_data:

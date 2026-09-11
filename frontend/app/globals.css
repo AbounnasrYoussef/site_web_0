@@ -1,0 +1,43 @@
+@import "tailwindcss";
+
+:root {
+	--color-bg: #f4f1ea;
+	--color-surface: #faf7f2;
+	--color-light: #ffffff;
+	--color-grey: #d6d6d6;
+	--color-text: #141414;
+	--color-muted: #4b5563;
+	--color-accent: #0ea5e9;
+	--color-accent-soft: #38dbea;
+	--color-error: #e7000b;
+	--color-highlight: #ccee00;
+}
+
+html {
+	background: var(--color-bg);
+	color: var(--color-text);
+}
+
+body {
+	background: var(--color-bg);
+	color: var(--color-text);
+}
+
+.squared-bg {
+	background-color: #f4f1ea;
+	background-image:
+		linear-gradient(rgba(0, 0, 0, 0.1) 1px, transparent 1px),
+		linear-gradient(90deg, rgba(0, 0, 0, 0.1) 1px, transparent 1px);
+	background-size: 24px 24px;
+	background-position: -1px -1px;
+}
+
+.dotted-bg {
+	background-color: #f4f1ea;
+	background-image: radial-gradient(
+		rgba(0, 0, 0, 0.4) 1px,
+		transparent 1px
+	);
+	background-size: 24px 24px;
+	background-position: -1px -1px;
+}

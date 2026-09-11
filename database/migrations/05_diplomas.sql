@@ -1,0 +1,7 @@
+CREATE TABLE IF NOT EXISTS diplomas (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  code VARCHAR(100) NOT NULL UNIQUE,
+  diploma_group VARCHAR(50) NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  rank INTEGER NOT NULL DEFAULT 12
+);
