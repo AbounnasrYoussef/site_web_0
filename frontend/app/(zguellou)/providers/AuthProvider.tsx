@@ -1,7 +1,8 @@
 'use client';
 
-import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
+import { createContext, useContext, useRef, useState, useEffect, ReactNode, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import { jwtDecode } from 'jwt-decode';
 
 interface User {
   id: string;
@@ -11,112 +12,73 @@ interface User {
 interface AuthContextType {
   user: User | null;
   accessToken: string | null;
-  isLoading: boolean;
   isInitialized: boolean;
+  getAccessToken: () => string | null;
   setAuth: (token: string, user: User) => void;
-  clearAuth: () => void;
-  refreshToken: () => Promise<void>;
+  clearAuth: () => Promise<void>;
+  refreshToken: () => Promise<string>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const STORAGE_KEYS = {
-  ACCESS_TOKEN: 'kharita_access_token',
-};
+let refreshPromise: Promise<string> | null = null;
 
-function getStoredToken(): string | null {
-  if (typeof window === 'undefined') return null;
-  return sessionStorage.getItem(STORAGE_KEYS.ACCESS_TOKEN);
+interface AccessTokenPayload {
+  id: string;
+  role: string;
 }
 
-function setStoredToken(token: string | null) {
-  if (typeof window === 'undefined') return;
-  if (token) {
-    sessionStorage.setItem(STORAGE_KEYS.ACCESS_TOKEN, token);
-  } else {
-    sessionStorage.removeItem(STORAGE_KEYS.ACCESS_TOKEN);
+function decodeAccessToken(token: string) {
+  try {
+    const { id, role } = jwtDecode<AccessTokenPayload>(token);
+    return { id, role };
+  } catch {
+    return null;
   }
 }
 
-let refreshPromise: Promise<void> | null = null;
-
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
-  const [accessToken, setAccessToken] = useState<string | null>(() => getStoredToken());
-  const [isLoading, setIsLoading] = useState(true);
+  const [accessToken, setAccessToken] = useState<string | null>(null);
   const [isInitialized, setIsInitialized] = useState(false);
   const router = useRouter();
 
-  const refreshToken = useCallback(async (): Promise<void> => {
-    if (refreshPromise) 
-      return refreshPromise;
+  const accessTokenRef = useRef<string | null>(null);
+
+  const getAccessToken = useCallback(() => accessTokenRef.current, []);
+
+  const refreshToken = useCallback(async (): Promise<string> => {
+    if (refreshPromise) return refreshPromise;
 
     refreshPromise = (async () => {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 8000);
-
       try {
-        const currentToken = getStoredToken();
-
+        const currentToken = accessTokenRef.current;
         const headers: HeadersInit = { 'Content-Type': 'application/json' };
         if (currentToken) headers['Authorization'] = `Bearer ${currentToken}`;
 
         const refreshRes = await fetch(
           `${process.env.NEXT_PUBLIC_AUTH_API_URL}/api/auth/refresh`,
-          {
-            method: 'POST',
-            credentials: 'include',
-            headers,
-            signal: controller.signal,
-          }
+          { method: 'POST', credentials: 'include', headers, signal: AbortSignal.timeout(8000) }
         );
 
-        clearTimeout(timeoutId);
-
-        if (!refreshRes.ok) {
-          throw new Error('Refresh failed');
-        }
-
+        if (!refreshRes.ok) throw new Error('Refresh failed');
         const refreshData = await refreshRes.json();
-        const newAccessToken = refreshData.accessToken;
+        const newAccessToken: string = refreshData.accessToken;
 
-        if (refreshData.user) {
-          setAccessToken(newAccessToken);
-          setStoredToken(newAccessToken);
-          setUser(refreshData.user);
-        } else {
-          const validateRes = await fetch(
-            `${process.env.NEXT_PUBLIC_AUTH_API_URL}/api/auth/validate`,
-            {
-              method: 'GET',
-              credentials: 'include',
-              headers: {
-                'Authorization': `Bearer ${newAccessToken}`,
-                'Content-Type': 'application/json',
-              },
-              signal: controller.signal,
-            }
-          );
+        const decoded = decodeAccessToken(newAccessToken);
+        if (!decoded) throw new Error('Invalid token payload');
 
-          clearTimeout(timeoutId);
+        accessTokenRef.current = newAccessToken;
+        setAccessToken(newAccessToken);
+        setUser(decoded);
 
-          if (!validateRes.ok) {
-            throw new Error('Validation failed');
-          }
-
-          const validateData = await validateRes.json();
-
-          setAccessToken(newAccessToken);
-          setStoredToken(newAccessToken);
-          setUser(validateData.user);
-        }
+        return newAccessToken;
       } catch (error) {
+        accessTokenRef.current = null;
         setAccessToken(null);
         setUser(null);
-        setStoredToken(null);
         throw error;
       } finally {
-        clearTimeout(timeoutId);
         refreshPromise = null;
       }
     })();
@@ -126,91 +88,49 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const initAuth = async () => {
-      const storedToken = getStoredToken();
-
-      if (storedToken) {
-        try {
-          const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 8000);
-
-          const res = await fetch(
-            `${process.env.NEXT_PUBLIC_AUTH_API_URL}/api/auth/validate`,
-            {
-              method: 'GET',
-              credentials: 'include',
-              headers: {
-                'Authorization': `Bearer ${storedToken}`,
-                'Content-Type': 'application/json',
-              },
-              signal: controller.signal,
-            }
-          );
-
-          clearTimeout(timeoutId);
-
-          if (res.ok) {
-            const data = await res.json();
-            setAccessToken(storedToken);
-            setUser(data.user);
-            setIsInitialized(true);
-            setIsLoading(false);
-            return;
-          }
-        } catch (error) {}
-      }
-
       try {
         await refreshToken();
       } catch {
+        accessTokenRef.current = null;
         setAccessToken(null);
         setUser(null);
-        setStoredToken(null);
       } finally {
         setIsInitialized(true);
-        setIsLoading(false);
       }
     };
 
     initAuth();
-  }, []);
+  }, [refreshToken]);
 
-  const setAuth = (token: string, user: User) => {
+  const setAuth = useCallback((token: string, user: User) => {
+    accessTokenRef.current = token;
     setAccessToken(token);
     setUser(user);
-    setStoredToken(token);
-  };
+  }, []);
 
   const clearAuth = useCallback(async (): Promise<void> => {
-    const token = getStoredToken();
-
-    const headers: HeadersInit = { 'Content-Type': 'application/json' };
-    if (token) headers['Authorization'] = `Bearer ${token}`;
-
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 5000);
-
     try {
+      const token = accessTokenRef.current;
       await fetch(`${process.env.NEXT_PUBLIC_AUTH_API_URL}/api/auth/logout`, {
         method: 'POST',
         credentials: 'include',
-        headers,
-        signal: controller.signal,
+        headers: {
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+          'Content-Type': 'application/json',
+        },
       });
     } catch (error) {
       console.error('Logout API error:', error);
     } finally {
-      clearTimeout(timeoutId);
+      accessTokenRef.current = null;
       setAccessToken(null);
       setUser(null);
-      setStoredToken(null);
       router.replace('/login');
     }
   }, [router]);
 
   return (
-    <AuthContext.Provider
-      value={{ user, accessToken, isLoading, isInitialized, setAuth, clearAuth, refreshToken }}
-    >
+    <AuthContext.Provider value={{ user, accessToken, isInitialized, getAccessToken, setAuth, clearAuth, refreshToken }}>
       {children}
     </AuthContext.Provider>
   );

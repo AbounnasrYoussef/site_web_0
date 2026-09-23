@@ -10,7 +10,12 @@ export default function RegisterPage() {
 
   return (
     <div className="flex-1 squared-bg flex items-center justify-center p-4">
-      <div className="container flex justify-center">
+      <div className="float-shapes hidden sm:block" aria-hidden="true">
+        <div className="float-shape float-shape--square" />
+        <div className="float-shape float-shape--circle" />
+      </div>
+      
+      <div className="container flex justify-center z-2">
         <div className="w-full sm:max-w-[70%] lg:max-w-[50%] bg-(--color-surface) border-2 border-(--color-text) shadow-[4px_4px_0_0_var(--color-text)]">
 
                 <div className="bg-(--color-highlight) border-b-[3px] border-b-black p-6 sm:p-8">

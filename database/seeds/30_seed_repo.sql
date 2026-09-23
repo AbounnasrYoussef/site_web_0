@@ -167,9 +167,9 @@ INSERT INTO users (
     false, false
   ),
   (
-    '70000000-0000-0000-0000-000000000003', 'Omar', 'Chraibi', 'USER',
-    'zguellouch@gmail.com', '$2b$10$5apXnGTweR1Zb3J0gFnEwOUECp9tBMt./zkCIfdYuf3TAieKI8q3a', 'LOCAL', NULL, 2004,
-    true, false
+    '70000000-0000-0000-0000-000000000003', 'Omar', 'Chraibi', 'ADMIN',
+    'marybethok@uberip.com', '$2b$10$5apXnGTweR1Zb3J0gFnEwOUECp9tBMt./zkCIfdYuf3TAieKI8q3a', 'LOCAL', NULL, 2004,
+    false, true
   )
 ON CONFLICT (id) DO NOTHING;
 -- ---- seed: category_translations ----

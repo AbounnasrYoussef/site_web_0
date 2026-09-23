@@ -4,48 +4,61 @@ import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/app/(zguellou)/providers/AuthProvider';
 import { useTranslations } from 'next-intl';
-import Input from '@/components/input';
 import { useAuthFetch } from '@/app/(zguellou)/hooks/useAuthFetch';
-import EditIcon from '@/public/icons/auth/EditIcon';
-import LogoutIcon from '@/public/icons/auth/LogoutIcon';
-import FullButton from '@/components/full-button';
 import { useMediaQuery } from '@/app/(zguellou)/hooks/useMediaQuery';
 
-// Add these imports after your existing imports
-import AgricultureIcon from '@/public/icons/auth/categories/AgricultureIcon';
-import CommunicationIcon from '@/public/icons/auth/categories/CommunicationIcon';
-import DefenseIcon from '@/public/icons/auth/categories/DefenseIcon';
-import EconomyIcon from '@/public/icons/auth/categories/EconomyIcon';
-import EducationIcon from '@/public/icons/auth/categories/EducationIcon';
-import HealthIcon from '@/public/icons/auth/categories/HealthIcon';
-import IslamIcon from '@/public/icons/auth/categories/IslamIcon';
-import MarineIcon from '@/public/icons/auth/categories/MarineIcon';
-import ScienceIcon from '@/public/icons/auth/categories/ScienceIcon';
-import SportIcon from '@/public/icons/auth/categories/SportIcon';
-import TourismeIcon from '@/public/icons/auth/categories/TourismeIcon';
-import UrbanismeIcon from '@/public/icons/auth/categories/UrbanismeIcon';
-import ToggleSwitch from '@/components/toggle-switch';
+import ProfileHeader from './ProfileHeader';
+import PersonalInfoSection from './PersonalInfoSection';
+import AcademicInfoSection from './AcademicInfoSection';
+import InterestsSection from './InterestsSection';
+import SecuritySettingsSection from './SecuritySettingsSection';
+import { isValidImage } from '@/utils/validateImage';
+import ProfileSkeleton from './ProfileSkeleton';
 
-const categoryIconMap: Record<string, React.ComponentType<React.SVGProps<SVGSVGElement>>> = {
-  'AGRICULTURE_ENVIRONMENT_SUSTAINABLE': AgricultureIcon,
-  'DEFENSE_SECURITY': DefenseIcon,
-  'ECONOMICS_TRADE_MANAGEMENT': EconomyIcon,
-  'EDUCATION_TEACHING': EducationIcon,
-  'ISLAMIC_SCIENCES': IslamIcon,
-  'LANGUAGES_CULTURE_ARTS_SOCIAL': CommunicationIcon,
-  'MARITIME': MarineIcon,
-  'MEDICAL_PARAMEDICAL': HealthIcon,
-  'SCIENCE_TECHNOLOGY_ENGINEERING': ScienceIcon,
-  'SPORTS_PHYSICAL_EDUCATION': SportIcon,
-  'TOURISM_HOSPITALITY': TourismeIcon,
-  'URBAN_PLANNING_PUBLIC_WORKS_LOGISTICS': UrbanismeIcon,
-};
+type Diploma = { id: string; rank: number; name: string };
+type Field = { id: string; name: string };
 
 export default function ProfilePage() {
-  const { user, accessToken, isLoading, isInitialized, refreshToken, clearAuth } = useAuth();
+  const { user, accessToken, isInitialized, refreshToken, clearAuth } = useAuth();
   const authFetch = useAuthFetch();
+  const router = useRouter();
+  const t = useTranslations();
+  const isMdOrLarger = useMediaQuery('768px');
+
   const [fullUser, setFullUser] = useState<any>(null);
   const [loadingProfile, setLoadingProfile] = useState(true);
+
+  // Edit state
+  const [isEditing, setIsEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Personal draft
+  const [draft, setDraft] = useState({ first_name: '', last_name: '', year_of_birth: '' });
+
+  // Academic draft
+  const [draftIsDropout, setDraftIsDropout] = useState(false);
+  const [draftDiplomaLevel, setDraftDiplomaLevel] = useState('');
+  const [draftDiplomaId, setDraftDiplomaId] = useState('');
+  const [draftDiplomaYear, setDraftDiplomaYear] = useState('');
+  const [draftDiplomaNote, setDraftDiplomaNote] = useState('');
+  const [draftDiplomaFields, setDraftDiplomaFields] = useState<Record<string, string>>({});
+
+  // Interests draft
+  const [draftCategories, setDraftCategories] = useState<string[]>([]);
+
+  // Profile picture draft
+  const [profilePicFile, setProfilePicFile] = useState<File | null>(null);
+  const [profilePicPreview, setProfilePicPreview] = useState<string | null>(null);
+
+  // Data fetching (categories, diplomas, fields)
+  const [allCategories, setAllCategories] = useState<any[]>([]);
+  const [diplomas, setDiplomas] = useState<Diploma[]>([]);
+  const [diplomaFieldsList, setDiplomaFieldsList] = useState<Field[]>([]);
+
+  // 2FA state
   const [is2FAEnabled, setIs2FAEnabled] = useState(false);
   const [toggling2FA, setToggling2FA] = useState(false);
   const [showPasswordConfirm, setShowPasswordConfirm] = useState(false);
@@ -57,29 +70,21 @@ export default function ProfilePage() {
   const [lockRemainingSeconds, setLockRemainingSeconds] = useState<number | null>(null);
   const lockIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  const router = useRouter();
-  const t = useTranslations();
-
-  const isMdOrLarger = useMediaQuery("768px");
-
-
-  const isAdmin = user?.role === 'ADMIN' || user?.role === 'SUPERADMIN';
-  const isGoogleUser = fullUser?.auth_provider === 'GOOGLE';
-
+  // Auth & profile fetch
   useEffect(() => {
     if (!isInitialized) return;
     if (!user) {
       router.replace('/login');
       return;
     }
-
     if (user && !accessToken) {
       refreshToken().catch(() => router.replace('/login'));
     }
   }, [isInitialized, user, accessToken, refreshToken, router]);
 
   useEffect(() => {
-    if (!isInitialized) return;
+    if (!isInitialized)
+      return;
     if (!user) {
       setLoadingProfile(false);
       return;
@@ -90,14 +95,11 @@ export default function ProfilePage() {
         const res = await authFetch(`${process.env.NEXT_PUBLIC_AUTH_API_URL}/api/auth/profile`, {
           method: 'GET',
         });
-
-        if (res.status === 403) {
+        if (res.status === 403)
           throw new Error('Forbidden');
-        }
-        if (!res.ok) {
-          throw new Error('Failed to fetch profile');
-        }
 
+        if (!res.ok)
+          throw new Error('Failed to fetch profile');
         const data = await res.json();
         setFullUser(data.user);
       } catch (error) {
@@ -116,6 +118,247 @@ export default function ProfilePage() {
     }
   }, [fullUser]);
 
+  // Fetch categories & diplomas
+  useEffect(() => {
+    if (!isInitialized || !user) return;
+    const fetchCategories = async () => {
+      try {
+        const res = await authFetch(`${process.env.NEXT_PUBLIC_AUTH_API_URL}/api/categories`);
+        const data = await res.json();
+        setAllCategories(data.categories || []);
+      } catch (err) {
+        console.error('Failed to fetch categories', err);
+      }
+    };
+    fetchCategories();
+  }, [authFetch]);
+
+  useEffect(() => {
+    if (!isInitialized || !user) return;
+    const fetchDiplomas = async () => {
+      try {
+        const res = await authFetch(`${process.env.NEXT_PUBLIC_AUTH_API_URL}/api/diplomas`);
+        const data = await res.json();
+        setDiplomas(data.diplomas || []);
+
+      } catch (err) {
+        console.error('Failed to fetch diplomas', err);
+      }
+    };
+    fetchDiplomas();
+  }, [authFetch]);
+
+  // Fetch fields when diploma changes in edit mode
+  useEffect(() => {
+    if (!draftDiplomaId) {
+      setDiplomaFieldsList([]);
+      return;
+    }
+    const fetchFields = async () => {
+      try {
+        const res = await authFetch(
+          `${process.env.NEXT_PUBLIC_AUTH_API_URL}/api/diplomas/${draftDiplomaId}/fields`
+        );
+        const data = await res.json();
+        setDiplomaFieldsList(data.fields || []);
+      } catch (err) {
+        console.error('Failed to fetch diploma fields', err);
+        setDiplomaFieldsList([]);
+      }
+    };
+    fetchFields();
+  }, [draftDiplomaId, authFetch]);
+
+  // Edit handlers
+  const startEditing = () => {
+    // Personal
+    setDraft({
+      first_name: fullUser.first_name || '',
+      last_name: fullUser.last_name || '',
+      year_of_birth: fullUser.year_of_birth ? String(fullUser.year_of_birth) : '',
+    });
+    // Categories
+    setDraftCategories(
+      fullUser.interested_categories?.map((c: any) => c.category_id) || []
+    );
+    // Academic
+    const diploma = fullUser.diploma;
+    setDraftIsDropout(fullUser.is_dropout || false);
+    if (diploma) {
+      const foundDiploma = diplomas.find((d) => d.id === diploma.diploma_id);
+      const rank = foundDiploma ? String(foundDiploma.rank) : '';
+
+      setDraftDiplomaLevel(rank);
+      setDraftDiplomaId(diploma.diploma_id || '');
+      setDraftDiplomaYear(diploma.obtained_year ? String(diploma.obtained_year) : '');
+      setDraftDiplomaNote(
+        diploma.general_grade !== null && diploma.general_grade !== undefined
+          ? String(diploma.general_grade)
+          : ''
+      );
+
+      const fields: Record<string, string> = {};
+      (diploma.fields || []).forEach((f: any) => {
+        fields[f.field_id] = f.value !== null && f.value !== undefined ? String(f.value) : '';
+      });
+      setDraftDiplomaFields(fields);
+    } else {
+      setDraftDiplomaLevel('');
+      setDraftDiplomaId('');
+      setDraftDiplomaYear('');
+      setDraftDiplomaNote('');
+      setDraftDiplomaFields({});
+    }
+    setSaveError(null);
+    setProfilePicFile(null);
+    setProfilePicPreview(fullUser.profile_pic || null);
+    setFieldErrors({});
+    setSaveError(null);
+    setIsEditing(true);
+  };
+
+  const cancelEditing = () => {
+    setFieldErrors({});
+    setSaveError(null);
+    setIsEditing(false);
+    setSaveError(null);
+    setProfilePicFile(null);
+    setProfilePicPreview(fullUser.profile_pic || null);
+    // Reset categories
+    setDraftCategories(
+      fullUser.interested_categories?.map((c: any) => c.category_id) || []
+    );
+    // Reset academic
+    const diploma = fullUser.diploma;
+    setDraftIsDropout(fullUser.is_dropout || false);
+    if (diploma) {
+      setDraftDiplomaLevel(diploma.diploma_rank ? String(diploma.diploma_rank) : '');
+      setDraftDiplomaId(diploma.diploma_id || '');
+      setDraftDiplomaYear(diploma.obtained_year ? String(diploma.obtained_year) : '');
+      setDraftDiplomaNote(
+        diploma.general_grade !== null && diploma.general_grade !== undefined
+          ? String(diploma.general_grade)
+          : ''
+      );
+      const fields: Record<string, string> = {};
+      (diploma.fields || []).forEach((f: any) => {
+        fields[f.field_id] = f.value !== null && f.value !== undefined ? String(f.value) : '';
+      });
+      setDraftDiplomaFields(fields);
+    } else {
+      setDraftDiplomaLevel('');
+      setDraftDiplomaId('');
+      setDraftDiplomaYear('');
+      setDraftDiplomaNote('');
+      setDraftDiplomaFields({});
+    }
+  };
+
+  // UPLOADE IMAGE SECTION
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const error = await isValidImage(t, file);
+    if (error) {
+      setFieldErrors((prev) => ({ ...prev, profile_pic: error }));
+      e.target.value = '';
+      return;
+    }
+
+    setFieldErrors((prev) => {
+      const { profile_pic, ...rest } = prev;
+      return rest;
+    });
+
+    setProfilePicFile(file);
+    setProfilePicPreview(URL.createObjectURL(file));
+  };
+
+  const saveProfile = async () => {
+    setSaving(true);
+    setSaveError(null);
+    let orderedDiplomaFieldIds: string[] = [];
+    try {
+      const formData = new FormData();
+
+      // Append file (if changed)
+      if (profilePicFile) {
+        formData.append('profile_pic', profilePicFile);
+      }
+
+      // Personal info
+      if (draft.first_name.trim()) formData.append('first_name', draft.first_name.trim());
+      if (draft.last_name.trim()) formData.append('last_name', draft.last_name.trim());
+      if (draft.year_of_birth) formData.append('year_of_birth', draft.year_of_birth);
+
+      // Categories
+      const currentCategoryIds = fullUser.interested_categories?.map((c: any) => c.category_id) || [];
+      const hasCategoryChanges =
+        draftCategories.length !== currentCategoryIds.length ||
+        draftCategories.some((id) => !currentCategoryIds.includes(id));
+      if (hasCategoryChanges) {
+        formData.append('interested_category_ids', JSON.stringify(draftCategories));
+      }
+
+      // Academic info
+      if (draftIsDropout !== fullUser.is_dropout) {
+        formData.append('is_dropout', String(draftIsDropout));
+      }
+      if (!draftIsDropout) {
+        if (draftDiplomaId) formData.append('diploma_id', draftDiplomaId);
+        if (draftDiplomaNote) formData.append('diploma_note', draftDiplomaNote);
+        if (draftDiplomaYear) formData.append('diploma_year', draftDiplomaYear);
+
+        // Build diploma_fields in the SAME ORDER as diplomaFieldsList
+        const fieldObjects: { field_id: string; value: number }[] = [];
+        const fieldIds: string[] = [];
+        for (const field of diplomaFieldsList) {
+          const val = draftDiplomaFields[field.id];
+          if (val !== undefined && val !== null && val !== '') {
+            fieldObjects.push({ field_id: field.id, value: Number(val) });
+            fieldIds.push(field.id);
+          }
+        }
+        if (fieldObjects.length > 0) {
+          formData.append('diploma_fields', JSON.stringify(fieldObjects));
+          orderedDiplomaFieldIds = fieldIds; // store for error mapping
+        }
+      }
+
+      // Send request ──────────────────────────────
+      const res = await authFetch(`${process.env.NEXT_PUBLIC_AUTH_API_URL}/api/auth/profile`, {
+        method: 'PATCH',
+        body: formData,
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw data; // throws the error object with `errors` array
+      }
+
+      const data = await res.json();
+      setFullUser(data.user);
+      setIsEditing(false);
+      setFieldErrors({});
+
+    } catch (err: any) {
+      if (err?.errors?.length) {
+        const fieldErrorsMap: Record<string, string> = {};
+        err.errors.forEach((error: { field: string; message: string }) => {
+          // Map errors
+          fieldErrorsMap[error.field] = error.message;
+        });
+        setFieldErrors(fieldErrorsMap);
+      } else {
+        setSaveError(err?.message ?? t('profile.editError'));
+      }
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // 2FA handlers
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
@@ -124,7 +367,6 @@ export default function ProfilePage() {
 
   const handleToggle2FA = async (enabled: boolean) => {
     if (!accessToken) return;
-
     setToggleError(null);
     setSuccessMessage(null);
     setToggling2FA(true);
@@ -185,7 +427,7 @@ export default function ProfilePage() {
             setLockRemainingSeconds(null);
             setToggleError(null);
             lockTimeoutRef.current = null;
-          }, seconds * 1000 + 1000); // extra second for safety
+          }, seconds * 1000 + 1000);
 
           return;
         }
@@ -212,327 +454,152 @@ export default function ProfilePage() {
       clearTimeout(lockTimeoutRef.current);
       lockTimeoutRef.current = null;
     }
+    if (lockIntervalRef.current) {
+      clearInterval(lockIntervalRef.current);
+      lockIntervalRef.current = null;
+    }
     setIsLocked(false);
+    setLockRemainingSeconds(null);
     setShowPasswordConfirm(false);
     setPassword('');
     setToggleError(null);
   };
 
-  if (!isInitialized || isLoading || loadingProfile) {
-    return (
-      <div className="flex items-center justify-center min-h-screen dotted-bg">
-        <div className="text-xl font-bold">{t('profile.loading')}</div>
-      </div>
-    );
-  }
+  const handleChangePassword = async (currentPassword: string, newPassword: string) => {
+    const res = await authFetch(`${process.env.NEXT_PUBLIC_AUTH_API_URL}/api/auth/change-own-password`, {
+      method: 'POST',
+      body: JSON.stringify({ current_password: currentPassword, new_password: newPassword }),
+    });
 
-  if (!user) {
-    return (
-      <div className="flex items-center justify-center min-h-screen dotted-bg">
-        <div className="text-xl font-bold">{t('profile.redirecting')}</div>
-      </div>
-    );
-  }
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.error || data.message || t('profile.changePassword.error'));
+    }
 
+    return data;
+  };
+
+  // Guards ──────────────────────────────────────────────────
+  if (!isInitialized || loadingProfile || !user) return (
+    <ProfileSkeleton />
+  );
   if (!fullUser) return null;
 
+  // Helpers ──────────────────────────────────────────────────
   const truncateName = (str: string | null | undefined, maxLength: number = 20): string => {
     if (!str) return '-';
     if (str.length <= maxLength) return str;
     return str.slice(0, maxLength - 3) + '...';
   };
 
-  let sharedStyles = "bg-(--color-surface) border-2 border-(--color-text) shadow-[4px_4px_0_0_var(--color-text)] p-4 sm:p-8 mb-8";
-  let labelStyle = "text-xs uppercase font-bold text-(--color-text) mb-1 whitespace-nowrap";
-  let inputStyle = "bg-(--color-light) text-lg font-semibold border-2 px-3 py-2 whitespace-nowrap";
+  const sharedStyles = 'bg-(--color-surface) border-2 border-(--color-text) shadow-[4px_4px_0_0_var(--color-text)] p-4 sm:p-8 mb-8';
+  const labelStyle = 'text-xs uppercase font-bold text-(--color-text) mb-1 whitespace-nowrap';
+  const inputStyle = 'bg-(--color-surface) text-lg font-semibold border-2 px-3 py-2 whitespace-nowrap';
 
+  // Render ──────────────────────────────────────────────────
   return (
     <main className="min-h-screen p-6 dotted-bg">
       <div className="max-w-7xl mx-auto">
+        <ProfileHeader
+          fullUser={fullUser}
+          isEditing={isEditing}
+          saving={saving}
+          profilePicPreview={profilePicPreview}
+          profilePicFile={profilePicFile}
+          fieldErrors={fieldErrors}
+          isMdOrLarger={isMdOrLarger}
+          truncateName={truncateName}
+          onEdit={startEditing}
+          onSave={saveProfile}
+          onCancel={cancelEditing}
+          onClearAuth={clearAuth}
+          onFileChange={handleFileChange}
+          fileInputRef={fileInputRef}
+          sharedStyles={sharedStyles}
+          t={t}
+        />
 
-        {/* ─── Header ─────────────────────────────────────────── */}
-        <div className={`${sharedStyles} flex flex-wrap items-center justify-between gap-4`}>
-          <div className="flex flex-wrap justify-center items-center gap-4">
-            {fullUser.profile_pic ? (
-              <img
-                src={fullUser.profile_pic}
-                alt={t('profile.profilePicture')}
-                className="w-20 h-20 object-cover border-2 border-(--color-text) bg-(--color-grey)"
-              />
-            ) : (
-              <div className="w-20 h-20 border-2 border-(--color-text) bg-(--color-grey) flex items-center justify-center text-3xl font-bold text-(--color-muted)">
-                {fullUser.first_name?.[0] || '?'}
-              </div>
-            )}
-            <div>
-              <h1 className="text-3xl text-center font-black uppercase">
-                <span title={fullUser.first_name || ''}>
-                  {isMdOrLarger
-                    ? truncateName(fullUser.first_name)
-                    : truncateName(fullUser.first_name, 10)
-                  }
-                </span>
-                {' '}
-                <span title={fullUser.last_name || ''}>
-                  {isMdOrLarger
-                    ? truncateName(fullUser.last_name)
-                    : truncateName(fullUser.last_name, 10)
-                  }
-                </span>
-              </h1>
-              <div className="flex justify-center sm:justify-start items-center gap-3 mt-1">
-                <span className="border-2 border-(--color-text) bg-(--color-accent-soft) px-3 py-0.5 text-xs font-bold uppercase">
-                  {t('profile.role')}: {user.role}
-                </span>
-              </div>
-            </div>
-          </div>
+        <PersonalInfoSection
+          fullUser={fullUser}
+          isEditing={isEditing}
+          draft={draft}
+          setDraft={setDraft}
+          fieldErrors={fieldErrors}
+          saveError={saveError}
+          isMdOrLarger={isMdOrLarger}
+          truncateName={truncateName}
+          labelStyle={labelStyle}
+          inputStyle={inputStyle}
+          sharedStyles={sharedStyles}
+          t={t}
+        />
 
-          <div className="w-full md:w-auto flex flex-row flex-wrap md:flex-col gap-2">
-            <FullButton
-              text={t('profile.edit')}
-              className="flex-1 justify-center"
-              classNameText='text-md font-bold text-(--color-text) whitespace-nowrap'
-              backgroundColor="var(--color-highlight)"
-            >
-              <EditIcon className="w-5 h-5 text-(--color-text)" />
-            </FullButton>
-            <FullButton
-              onClick={clearAuth}
-              text={t('profile.logout')}
-              className="flex-1 justify-center"
-              classNameText='text-md font-bold text-(--color-text) whitespace-nowrap'
-              backgroundColor="var(--color-error)"
-            >
-              <LogoutIcon className="w-5 h-5 text-(--color-text)" />
-            </FullButton>
-          </div>
-        </div>
+        <AcademicInfoSection
+          fullUser={fullUser}
+          isEditing={isEditing}
+          draftIsDropout={draftIsDropout}
+          setDraftIsDropout={setDraftIsDropout}
+          draftDiplomaLevel={draftDiplomaLevel}
+          setDraftDiplomaLevel={setDraftDiplomaLevel}
+          draftDiplomaId={draftDiplomaId}
+          setDraftDiplomaId={setDraftDiplomaId}
+          draftDiplomaYear={draftDiplomaYear}
+          setDraftDiplomaYear={setDraftDiplomaYear}
+          draftDiplomaNote={draftDiplomaNote}
+          setDraftDiplomaNote={setDraftDiplomaNote}
+          draftDiplomaFields={draftDiplomaFields}
+          setDraftDiplomaFields={setDraftDiplomaFields}
+          diplomas={diplomas}
+          diplomaFieldsList={diplomaFieldsList}
+          fieldErrors={fieldErrors}
+          isMdOrLarger={isMdOrLarger}
+          truncateName={truncateName}
+          labelStyle={labelStyle}
+          inputStyle={inputStyle}
+          sharedStyles={sharedStyles}
+          t={t}
+        />
 
-        {/* ─── Personal Information ──────────────────────────── */}
-        <section className={`${sharedStyles}`}>
-          <h2 className="text-xl font-bold uppercase tracking-wide border-b-2 border-(--color-text) pb-2 mb-4">
-            {t('profile.personalInfo')}
-          </h2>
-          <div className="flex flex-col gap-4">
-            <div className="flex flex-wrap gap-4">
-              <div className="flex-1">
-                <p className={`${labelStyle}`}>
-                  {t('profile.firstName')}
-                </p>
-                <p className={`${inputStyle}`} title={fullUser.first_name || ''}>
-                  {isMdOrLarger
-                    ? fullUser.first_name || '-'
-                    : truncateName(fullUser.first_name)
-                  }
-                </p>
-              </div>
-              <div className="flex-1">
-                <p className={`${labelStyle}`}>
-                  {t('profile.lastName')}
-                </p>
-                <p className={`${inputStyle}`} title={fullUser.last_name || ''}>
-                  {isMdOrLarger
-                    ? fullUser.last_name || '-'
-                    : truncateName(fullUser.last_name)
-                  }
-                </p>
-              </div>
-            </div>
-            <div className='flex flex-wrap gap-4'>
-              <div className="flex-1">
-                <p className={`${labelStyle}`}>
-                  {t('profile.email')}
-                </p>
-                <p className={`${inputStyle}`} title={fullUser.email}>
-                  {isMdOrLarger
-                    ? truncateName(fullUser.email, 40)
-                    : truncateName(fullUser.email)
-                  }
-                </p>
-              </div>
-              <div className="flex-1">
-                <p className={`${labelStyle}`}>{t('profile.yearOfBirth')}</p>
-                <p className={`${inputStyle}`}>{fullUser.year_of_birth || '-'}</p>
-              </div>
-            </div>
-          </div>
-        </section>
+        <div className="flex gap-8 flex-wrap">
+          <InterestsSection
+            fullUser={fullUser}
+            isEditing={isEditing}
+            allCategories={allCategories}
+            draftCategories={draftCategories}
+            setDraftCategories={setDraftCategories}
+            isMdOrLarger={isMdOrLarger}
+            truncateName={truncateName}
+            labelStyle={labelStyle}
+            inputStyle={inputStyle}
+            sharedStyles={sharedStyles}
+            t={t}
+          />
 
-        {/* ─── Academic Information ───────────────────────────── */}
-        <section className={`${sharedStyles}`}>
-          <h2 className="text-xl font-bold uppercase tracking-wide border-b-2 border-(--color-text) pb-2 mb-4">
-            {t('profile.academicInfo')}
-          </h2>
-          {/* <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            <div>
-              <p className={`${labelStyle}`}>{t('profile.dropout')}</p>
-              <p className={`${inputStyle}`}>{fullUser.is_dropout ? t('profile.yes') : t('profile.no')}</p>
-            </div>
-          </div> */}
-
-          {fullUser.diploma && (
-            <div className="border-(--color-text) pt-2 flex gap-3 flex-wrap w-full">
-              {/* First div */}
-              <div className="border-2 px-5 py-4 flex flex-col gap-5 flex-1 bg-(--color-light) justify-between">
-                <div>
-                  <p className={`${labelStyle} text-(--color-muted)`}>{t('profile.diplomaName')}</p>
-                  <p className="text-md sm:text-2xl font-semibold px-3 py-2 border-3 uppercase bg-(--color-highlight) w-fit">
-                    {fullUser.diploma.diploma_name || '-'}
-                  </p>
-                </div>
-                <div className="flex justify-between gap-2 flex-wrap">
-                  <div>
-                    <p className={`${labelStyle} text-(--color-muted)`}>{t('profile.diplomaNote')}</p>
-                    <p className="text-2xl font-semibold text-(--color-accent) truncate">
-                      {fullUser.diploma.general_grade !== null ? fullUser.diploma.general_grade : '-'}
-                    </p>
-                  </div>
-                  <div>
-                    <p className={`${labelStyle} text-(--color-muted)`}>{t('profile.classOf')}</p>
-                    <p className="text-2xl font-semibold truncate">{fullUser.diploma.obtained_year || '-'}</p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Second div (fields) */}
-              {fullUser.diploma.fields && fullUser.diploma.fields.length > 0 && (
-                <div className="border-2 px-5 py-4 flex flex-col gap-5 flex-1 bg-(--color-light)">
-                  <p className="text-xs uppercase font-bold text-(--color-muted) mb-2 whitespace-nowrap">
-                    {t('profile.diplomaFields')}
-                  </p>
-                  <div className="flex gap-3 flex-wrap">
-                    {fullUser.diploma.fields.map((field: any) => (
-                      <div key={field.field_id} className="flex-1">
-                        <p className={`${labelStyle}`} title={field.field_name}>
-                          {isMdOrLarger
-                            ? truncateName(field.field_name, 40)
-                            : truncateName(field.field_name, 25)
-                          }
-                          </p>
-                        <p className={`${inputStyle} w-full truncate`}>{field.value !== null ? field.value : '-'}</p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-        </section>
-
-        <div className='flex gap-8 flex-wrap'>
-          {/* ─── Interests ───────────────────────────────────────── */}
-          <section className={`${sharedStyles} flex-1 m-0!`}>
-            <h2 className="text-xl font-bold uppercase tracking-wide border-b-2 border-(--color-text) pb-2 mb-4">
-              {t('profile.interests')}
-            </h2>
-            
-            {fullUser.interested_categories && fullUser.interested_categories.length > 0 ? (
-              <div className="flex gap-3 flex-wrap flex-col sm:flex-row">
-                {fullUser.interested_categories.map((category: any) => {
-                  const IconComponent = categoryIconMap[category.category_slug];
-                  return (
-                    <div
-                      key={category.category_id}
-                      className="border-2 border-(--color-text) bg-(--color-surface) p-3 flex flex-col items-center justify-center gap-2 hover:bg-(--color-highlight) transition-colors flex-1"
-                    >
-                      {IconComponent && (
-                        <IconComponent className="w-8 h-8 text-(--color-text)" />
-                      )}
-                      <p className="text-xs font-bold uppercase text-center leading-tight wrap-break-word" title={category.category_name}>
-                        {isMdOrLarger
-                          ? truncateName(category.category_name, 30)
-                          : truncateName(category.category_name, 25)
-                        }
-                      </p>
-                    </div>
-                  );
-                })}
-              </div>
-            ) : (
-              <p className="text-lg font-semibold">-</p>
-            )}
-          </section>
-
-          {/* ─── Security Settings (2FA) ─────────────────────────────── */}
-          {!isGoogleUser && (
-            <section className={`${sharedStyles} flex-1 m-0!`}>
-              <h2 className="text-xl font-bold uppercase tracking-wide border-b-2 border-(--color-text) pb-2 mb-4">
-                {t('profile.securitySettings')}
-              </h2>
-
-              <div className={`flex flex-col gap-4 ${inputStyle} `}>
-                <ToggleSwitch
-                  label={
-                    isMdOrLarger
-                      ? truncateName(t('profile.2fa.title'), 30)
-                      : truncateName(t('profile.2fa.title'))
-                    
-                  }
-                  checked={is2FAEnabled}
-                  onChange={() => {
-                    if (isLocked || isAdmin) return;
-                    setShowPasswordConfirm(true);
-                  }}
-                  disabled={toggling2FA || isLocked || isAdmin}
-                  statusLabel={t('profile.2fa.status')}
-                  statusEnabled={t('profile.2fa.enabledStatus')}
-                  statusDisabled={t('profile.2fa.disabledStatus')}
-                  title={t('profile.2fa.title')}
-                />
-
-                {/* Success / error messages and password modal */}
-                {successMessage && (
-                  <div className="border-2 border-green-600 bg-green-50 p-2 text-sm font-semibold text-green-700 shadow-[2px_2px_0_0_green]">
-                    {successMessage}
-                  </div>
-                )}
-
-              </div>
-              {showPasswordConfirm && (
-                <div className={`${inputStyle} border-t-0`}>
-                  <p className="text-sm font-bold uppercase tracking-wide mb-2">
-                    {t('profile.2fa.confirmPassword')}
-                  </p>
-
-                  <Input
-                    type="password"
-                    placeholder={t('profile.2fa.passwordPlaceholder')}
-                    value={password}
-                    dir="ltr"
-                    onChange={(e) => {
-                      setPassword(e.target.value);
-                      setToggleError(null);
-                    }}
-                    error={toggleError}
-                    disabled={isLocked || toggling2FA}
-                    className="w-full"
-                    containerClassName="w-full"
-                  />
-
-                  <div className="flex gap-2 mt-3">
-                    <button
-                      onClick={() => {
-                        if (password && !isLocked) {
-                          handleToggle2FA(!is2FAEnabled);
-                        }
-                      }}
-                      disabled={!password || toggling2FA || isLocked}
-                      className="cursor-pointer border-2 border-(--color-text) px-4 py-1 font-bold hover:bg-(--color-accent-soft) disabled:opacity-50 disabled:hover:bg-transparent disabled:cursor-not-allowed"
-                    >
-                      {t('profile.2fa.confirm')}
-                    </button>
-                    <button
-                      onClick={closePasswordModal}
-                      className="cursor-pointer border-2 border-(--color-text) px-4 py-1 font-bold hover:bg-(--color-grey)"
-                    >
-                      {t('profile.2fa.cancel')}
-                    </button>
-                  </div>
-                </div>
-              )}
-            </section>
-          )}
+          <SecuritySettingsSection
+            fullUser={fullUser}
+            is2FAEnabled={is2FAEnabled}
+            isAdmin={user?.role === 'ADMIN' || user?.role === 'SUPERADMIN'}
+            isGoogleUser={fullUser?.auth_provider === 'GOOGLE'}
+            isLocked={isLocked}
+            toggling2FA={toggling2FA}
+            showPasswordConfirm={showPasswordConfirm}
+            password={password}
+            setPassword={setPassword}
+            toggleError={toggleError}
+            successMessage={successMessage}
+            lockRemainingSeconds={lockRemainingSeconds}
+            onToggle2FA={handleToggle2FA}
+            onClosePasswordModal={closePasswordModal}
+            isMdOrLarger={isMdOrLarger}
+            truncateName={truncateName}
+            labelStyle={labelStyle}
+            inputStyle={inputStyle}
+            sharedStyles={sharedStyles}
+            t={t}
+            onShowPasswordConfirm={() => setShowPasswordConfirm(true)}
+            onClearToggleError={() => setToggleError(null)}
+            onChangePassword={handleChangePassword}
+          />
         </div>
       </div>
     </main>

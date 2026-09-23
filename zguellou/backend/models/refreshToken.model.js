@@ -28,11 +28,11 @@ async function revokeRefreshToken(tokenId) {
   );
 }
 
-async function revokeAllUserTokens(userId) { //logout all devices
+async function revokeAllUserTokens(userId, currentRefreshTokenHash = null) { //logout all devices
   await pool.query(
     `UPDATE refresh_tokens SET revoked_at = NOW()
-     WHERE user_id = $1 AND revoked_at IS NULL`,
-    [userId] //AND revoked_at IS NULL to skip already revoked tokens
+     WHERE user_id = $1 AND revoked_at IS NULL AND ($2::text IS NULL OR token_hash != $2)`,
+    [userId, currentRefreshTokenHash] //AND revoked_at IS NULL to skip already revoked tokens
   );
 }
 
@@ -43,10 +43,20 @@ async function deleteExpiredTokens() {
   return result.rowCount;
 }
 
+async function revokeOtherDeviceTokens(deviceId, keepTokenId) {
+  await pool.query(
+    `UPDATE refresh_tokens
+     SET revoked_at = NOW()
+     WHERE device_id = $1 AND id != $2 AND revoked_at IS NULL`,
+    [deviceId, keepTokenId]
+  );
+}
+
 module.exports = {
   createRefreshToken,
   findRefreshTokenByHash,
   revokeRefreshToken,
   revokeAllUserTokens,
   deleteExpiredTokens,
+  revokeOtherDeviceTokens,
 };

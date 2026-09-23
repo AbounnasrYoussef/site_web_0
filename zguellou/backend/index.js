@@ -1,11 +1,15 @@
 const path = require('path');
-// let envPath;
-// if (process.env.NODE_ENV === 'test') {
-//   envPath = path.join(__dirname, '..', '.env.test');
-// } else {
-//   envPath = path.join(__dirname, '.env.global'); //'..', 
-// }
-require('dotenv');
+let envPath;
+if (process.env.NODE_ENV === 'test') {
+  envPath = path.join(__dirname, '..', '.env.test');
+} else {
+  envPath = path.join(__dirname, '.env'); //'..', 
+}
+require('dotenv')
+//.config({
+//   path: envPath,
+//   override: true,
+// });
 
 const express = require('express');
 const cors = require('cors');
@@ -25,7 +29,7 @@ const app = express();
 const PORT = process.env.AUTH_BACKEND_PORT || 5000;
 
 // if (process.env.TRUST_PROXY) 
-//   app.set('trust proxy', 1);
+app.set('trust proxy', 1);
 
 app.use(helmet());
 app.use(compression());
@@ -39,7 +43,9 @@ app.use(cookieParser());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
+
 // app.use('/api/images', express.static(path.join(__dirname, 'public', 'images')));
+app.use(express.static('public'))
 
 morgan.token('body', (req) => {
   if (!req.body || req.method === 'GET') return '-';
@@ -52,7 +58,6 @@ morgan.token('body', (req) => {
   delete safe.refresh_token;
   return JSON.stringify(safe);
 });
-morgan.token('request-id', (req) => req.requestId || '-');
 const stream = {
   write: (message) => logger.info(message.trim()),
 };
@@ -61,11 +66,9 @@ morgan.token('url-redacted', (req) => {
   return url.replace(/([?&])token=[^&]+/g, '$1token=[REDACTED]');
 });
 
-app.use(morgan(':request-id :method :url-redacted :status :response-time ms - :remote-addr  :body', { stream }));
+app.use(morgan(':method :url-redacted :status :response-time ms - :remote-addr  :body', { stream }));
 
-const requestId = require('./middleware/requestId');
 const getLocale = require('./utils/locale');
-app.use(requestId);
 
 // Prevent caching of all API responses
 app.use('/api', (req, res, next) => {
@@ -91,7 +94,6 @@ app.get('/api/health', (req, res) => {
 
 app.use((err, req, res, next) => {
   logger.error(err.stack, {
-    requestId: req.requestId,
     method: req.method,
     url: req.originalUrl,
   });

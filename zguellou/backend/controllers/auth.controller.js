@@ -27,6 +27,10 @@ const { OAuth2Client } = require('google-auth-library');
 const REFRESH_TOKEN_EXPIRES_IN_SECONDS = parseInt(process.env.REFRESH_TOKEN_EXPIRES_IN) || 604800;
 const REFRESH_TOKEN_EXPIRES_IN_MS = REFRESH_TOKEN_EXPIRES_IN_SECONDS * 1000;
 
+const LOGIN_MAX_ATTEMPTS = parseInt(process.env.LOGIN_MAX_ATTEMPTS) || 5;
+const LOGIN_LOCKOUT_MINUTES = parseInt(process.env.LOGIN_LOCKOUT_MINUTES) || 15;
+
+
 const googleClient = new OAuth2Client(
   process.env.GOOGLE_CLIENT_ID,
   process.env.GOOGLE_CLIENT_SECRET,
@@ -321,10 +325,10 @@ async function login(req, res, next) {
        WHERE email = $1 AND auth_provider = 'LOCAL'`,
       [normalizedEmail]
     );
+    const DUMMY_HASH = '$2b$10$5apXnGTweR1Zb3J0gFnEwOUECp9tBMt./zkCIfdYuf3TAieKI8q3a';
     if (userResult.rows.length === 0) {
-      return res.status(401).json({
-        error: getMessage('auth/invalid_credentials', locale),
-      });
+      await bcrypt.compare(password, DUMMY_HASH);
+      return res.status(401).json({ error: getMessage('auth/invalid_credentials', locale) });
     }
 
     const user = userResult.rows[0];
@@ -333,17 +337,26 @@ async function login(req, res, next) {
     if (user.locked_until && new Date(user.locked_until) > new Date()) {
       return res.status(403).json({
         error: getMessage('auth/account_locked', locale),
+        locked_until: user.locked_until,
       });
+    } else if (user.locked_until && new Date(user.locked_until) <= new Date()) {
+      await pool.query(
+        `UPDATE users SET failed_login_attempts = 0, locked_until = NULL WHERE id = $1`,
+        [user.id]
+      );
+      user.failed_login_attempts = 0;
+      user.locked_until = null;
     }
-
+    
     const isValid = await bcrypt.compare(password, user.password_hash);
     if (!isValid) {
       const newAttempts = (user.failed_login_attempts || 0) + 1;
       let locked = null;
 
-      if (newAttempts >= 5) {
-        locked = new Date(Date.now() + 15 * 60 * 1000);
-        await sendLockoutAlertEmail({ to: user.email, locale });
+      if (newAttempts >= LOGIN_MAX_ATTEMPTS) {
+        locked = new Date(Date.now() + LOGIN_LOCKOUT_MINUTES * 60 * 1000);
+        if (newAttempts === LOGIN_MAX_ATTEMPTS)
+          await sendLockoutAlertEmail({ to: user.email, locale });
       }
 
       await pool.query(
@@ -375,7 +388,7 @@ async function login(req, res, next) {
     if (deviceCookie) {
       const deviceIdHash = hashDeviceIdentifier(deviceCookie);
       deviceResult = await pool.query(
-        `SELECT id, is_trusted, trusted_until
+        `SELECT id
          FROM user_devices
          WHERE user_id = $1 AND device_identifier_hash = $2`,
         [user.id, deviceIdHash]
@@ -466,16 +479,21 @@ async function refreshToken(req, res, next) {
         error: getMessage('auth/invalid_token', locale),
       });
     }
-
+    
     // check reuse
     if (storedToken.revoked_at) {
-      await refreshTokenModel.revokeAllUserTokens(storedToken.user_id);
-      res.clearCookie('refresh_token');
-      res.clearCookie('device_id');
+      const graceMs = 8 * 1000;
+      const revokedAgo = Date.now() - new Date(storedToken.revoked_at).getTime();
 
-      return res.status(401).json({
-        error: getMessage('auth/refresh_token_revoked', locale),
-      });
+      if (revokedAgo > graceMs) {
+        await refreshTokenModel.revokeAllUserTokens(storedToken.user_id);
+        res.clearCookie('refresh_token');
+        res.clearCookie('device_id');
+
+        return res.status(401).json({
+          error: getMessage('auth/refresh_token_revoked', locale)
+        });
+      }
     }
 
     // check time
@@ -491,7 +509,8 @@ async function refreshToken(req, res, next) {
 
     // check device
     if (!deviceCookie) {
-      await refreshTokenModel.revokeAllUserTokens(storedToken.user_id);
+      // await refreshTokenModel.revokeAllUserTokens(storedToken.user_id);
+      await refreshTokenModel.revokeRefreshToken(storedToken.id);
       res.clearCookie('refresh_token');
       res.clearCookie('device_id');
 
@@ -584,12 +603,14 @@ async function refreshToken(req, res, next) {
     const newRefreshTokenHash = hashRefreshToken(newRefreshTokenRaw);
     const expiresAt = new Date(Date.now() + REFRESH_TOKEN_EXPIRES_IN_MS);
 
-    await refreshTokenModel.createRefreshToken({
+    const newToken = await refreshTokenModel.createRefreshToken({
       userId: user.rows[0].id,
       tokenHash: newRefreshTokenHash,
       deviceId: storedToken.device_id,
       expiresAt,
     });
+
+    await refreshTokenModel.revokeOtherDeviceTokens(storedToken.device_id, newToken.id);
 
     // keep cookie
     res.cookie('device_id', deviceCookie, {
@@ -725,6 +746,20 @@ async function forgotPassword(req, res) {
 
     const user = userResult.rows[0];
 
+    // 60s cool down to prevent spamming the user inbox in case of slow email
+    const recent = await pool.query(
+      `SELECT 1 FROM password_reset_tokens
+       WHERE user_id = $1
+         AND used_at IS NULL
+         AND created_at > NOW() - INTERVAL '60 seconds'
+       LIMIT 1`,
+      [user.id]
+    );
+
+    if (recent.rows.length > 0) {
+      return res.json({ message: genericMessage });
+    }
+
     await pool.query(
       `UPDATE password_reset_tokens SET used_at = NOW()
        WHERE user_id = $1 AND used_at IS NULL`,
@@ -748,10 +783,10 @@ async function forgotPassword(req, res) {
 
     return res.json({ message: genericMessage });
   } catch (error) {
+    console.error('Full forgotPassword error:', error);
     logger.error('Forgot password error', {
-      error: error.message,
+      error: error,
       stack: error.stack,
-      requestId: req.requestId,
     });
     return res.json({ message: genericMessage });
   }
@@ -766,6 +801,23 @@ async function resetPassword(req, res, next) {
     if (!stored || !stored.user_id) {
       return res.status(400).json({
         error: getMessage('auth/invalid_token', locale),
+      });
+    }
+
+    const userResult = await pool.query(
+      `SELECT password_hash FROM users WHERE id = $1`,
+      [stored.user_id]
+    );
+    if (userResult.rows.length === 0) {
+      return res.status(400).json({
+        error: getMessage('auth/invalid_token', locale),
+      });
+    }
+
+    const isSameAsOld = await bcrypt.compare(password, userResult.rows[0].password_hash);
+    if (isSameAsOld) {
+      return res.status(400).json({
+        error: getMessage('auth/password_same_as_old', locale),
       });
     }
 
@@ -977,7 +1029,7 @@ async function toggle2FA(req, res, next) {
       const newAttempts = (user.toggle_2fa_attempts || 0) + 1;
       let lockedUntil = null;
       if (newAttempts >= 5) {
-        lockedUntil = new Date(Date.now() + 15 * 60 * 1000);
+        lockedUntil = new Date(Date.now() + parseInt(process.env.TOGGLE_2FA_LOCKOUT_MINUTES) * 60 * 1000);
       }
       await pool.query(
         `UPDATE users
@@ -1228,6 +1280,48 @@ async function googleRedirect(req, res) {
   res.redirect(url);
 }
 
+async function uploadProfilePictureFromGoogle(googlePicUrl, locale) {
+  if (!googlePicUrl)
+      return null;
+  try {
+    const response = await fetch(googlePicUrl);
+    if (!response.ok)
+      throw new Error(`Download failed: ${response.status}`);
+
+    const contentType = response.headers.get('content-type') || 'image/jpeg';
+
+    const EXTENSION_BY_MIME = {
+      'image/jpeg': 'jpg',
+      'image/png': 'png',
+      'image/webp': 'webp',
+    };
+    const extension = EXTENSION_BY_MIME[contentType] || 'jpg';
+
+    const arrayBuffer = await response.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+
+    const formData = new FormData();
+    formData.append('image', new Blob([buffer], { type: contentType }), `profile.${extension}`);
+    formData.append('upload_dir', 'auth/profile');
+
+    const uploaderUrl = process.env.PRIVATE_UPLOADER_API_URL;
+    const uploadRes = await fetch(`${uploaderUrl}/uploader?lang=${locale}`, {
+      method: 'POST',
+      body: formData
+    });
+
+    if (!uploadRes.ok) {
+      const errData = await uploadRes.json().catch(() => ({}));
+      throw new Error(errData.message || 'Upload failed');
+    }
+
+    const data = await uploadRes.json();
+    return data.path;
+  } catch (error) {
+    console.error('Failed to upload profile picture from Google:', error.message, error.cause);
+    return null;
+  }
+}
 async function googleCallback(req, res, next) {
   try {
     const locale = getLocale(req);
@@ -1282,11 +1376,13 @@ async function googleCallback(req, res, next) {
         return res.redirect(`${process.env.FRONTEND_URL}/login?error=${getMessage('auth/oauth_email_registered_local', locale)}`);
       }
 
+      const uploadedPicUrl = await uploadProfilePictureFromGoogle(profilePic, locale);
+
       const created = await pool.query(
         `INSERT INTO users (email, first_name, last_name, google_id, auth_provider, profile_pic)
          VALUES ($1, $2, $3, $4, 'GOOGLE', $5)
          RETURNING *`,
-        [email, firstName, lastName, googleId, profilePic]
+        [email, firstName, lastName, googleId, uploadedPicUrl]
       );
       user = created.rows[0];
       newGoogleUser = true;
@@ -1297,36 +1393,79 @@ async function googleCallback(req, res, next) {
     }
 
     // Device handling
-    const fingerprint = getDeviceFingerprint(req);
-    let deviceResult = await pool.query(
-      `SELECT id FROM user_devices WHERE user_id = $1 AND device_id = $2`,
-      [user.id, fingerprint]
-    );
+    let deviceId = null;
+    let isNewDevice = false;
+    let rawDeviceId = null;
+    let deviceIdHash = null;
 
-    let deviceId, isNewDevice = false;
-    if (deviceResult.rows.length > 0) {
-      deviceId = deviceResult.rows[0].id;
-      await pool.query(`UPDATE user_devices SET last_used_at = NOW() WHERE id = $1`, [deviceId]);
-    } else {
+    const deviceCookie = req.cookies?.device_id;
+    if (deviceCookie) {
+      deviceIdHash = hashDeviceIdentifier(deviceCookie);
+      const found = await pool.query(
+        `SELECT id FROM user_devices
+        WHERE user_id = $1 AND device_identifier_hash = $2`,
+        [user.id, deviceIdHash]
+      );
+      if (found.rows.length > 0) {
+        deviceId = found.rows[0].id;
+        rawDeviceId = deviceCookie;
+        await pool.query(
+          `UPDATE user_devices SET last_used_at = NOW() WHERE id = $1`,
+          [deviceId]
+        );
+      }
+    }
+
+    if (!deviceId) {
+      const fingerprint = getDeviceFingerprint(req);
+      const found = await pool.query(
+        `SELECT id FROM user_devices
+        WHERE user_id = $1 AND device_id = $2`,
+        [user.id, fingerprint]
+      );
+      if (found.rows.length > 0) {
+        deviceId = found.rows[0].id;
+
+        rawDeviceId = generateDeviceIdentifier();
+        deviceIdHash = hashDeviceIdentifier(rawDeviceId);
+
+        await pool.query(
+          `UPDATE user_devices
+          SET last_used_at = NOW(), device_identifier_hash = $1
+          WHERE id = $2`,
+          [deviceIdHash, deviceId]
+        );
+      }
+    }
+
+    if (!deviceId) {
+      const fingerprint = getDeviceFingerprint(req);
+      rawDeviceId = generateDeviceIdentifier();
+      deviceIdHash = hashDeviceIdentifier(rawDeviceId);
       isNewDevice = true;
-      const rawDeviceId = generateDeviceIdentifier();
-      const deviceIdHash = hashDeviceIdentifier(rawDeviceId);
 
       const newDevice = await pool.query(
         `INSERT INTO user_devices (user_id, device_id, device_identifier_hash, device_name, user_agent, ip_address)
-         VALUES ($1, $2, $3, $4, $5, $6)
-         RETURNING id`,
-        [user.id, fingerprint, deviceIdHash, req.body.deviceName || 'Unknown', req.headers['user-agent'], req.ip]
+        VALUES ($1, $2, $3, $4, $5, $6)
+        RETURNING id`,
+        [
+          user.id,
+          fingerprint,
+          deviceIdHash,
+          req.body.deviceName || 'Unknown',
+          req.headers['user-agent'],
+          req.ip,
+        ]
       );
       deviceId = newDevice.rows[0].id;
-
-      res.cookie('device_id', rawDeviceId, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
-        maxAge: 365 * 24 * 60 * 60 * 1000,
-      });
     }
+
+    res.cookie('device_id', rawDeviceId, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 365 * 24 * 60 * 60 * 1000,
+    });
 
     // Complete authentication
     return completeAuthentication({
@@ -1364,18 +1503,157 @@ async function replaceUserInterests(userId, ids, tableName, idColumn) {
   }
 }
 
+async function deleteOldProfileImage(imageUrl, locale = 'en') {
+  if (!imageUrl) return;
+  try {
+    const response = await fetch(`${process.env.PRIVATE_UPLOADER_API_URL}/uploader?lang=${locale}`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ image_url: imageUrl }),
+    });
+    if (!response.ok) {
+      const errorText = await response.text();
+      logger.error(`Failed to delete old profile picture: ${imageUrl} - ${errorText}`);
+    }
+  } catch (error) {
+    logger.error(`Error deleting old profile picture: ${imageUrl} - ${error.message}`);
+  }
+}
+
+async function uploadFileToUploader(fileBuffer, mimetype, locale) {
+  const formData = new FormData();
+  const extension = mimetype.split('/')[1] || 'jpg';
+  const blob = new Blob([fileBuffer], { type: mimetype });
+  formData.append('image', blob, `profile.${extension}`);
+  formData.append('upload_dir', 'auth/profile');
+
+  const uploaderUrl = process.env.PRIVATE_UPLOADER_API_URL;
+  const response = await fetch(`${uploaderUrl}/uploader?lang=${locale}`, {
+    method: 'POST',
+    body: formData,
+  });
+
+  if (!response.ok) {
+    const errData = await response.json().catch(() => ({}));
+    throw new Error(errData.message || 'Upload failed');
+  }
+
+  const data = await response.json();
+  return data.path;
+}
+
+
 async function updateProfile(req, res, next) {
   const client = await pool.connect();
   try {
     const locale = getLocale(req);
     const userId = req.user.id;
 
-    const {
+    let {
       first_name, last_name, year_of_birth, is_dropout,
-      diploma_id, diploma_note, diploma_year, diploma_fields,
-      interested_category_ids,
+      diploma_id, diploma_note, diploma_year,
+      interested_category_ids, diploma_fields,
     } = req.body;
 
+    const errors = [];
+
+    let parsedInterestedCategoryIds;
+    if (interested_category_ids !== undefined) {
+      try {
+        parsedInterestedCategoryIds = JSON.parse(interested_category_ids);
+        if (!Array.isArray(parsedInterestedCategoryIds)) {
+          errors.push({
+            field: 'interested_category_ids',
+            message: getMessage('validation/invalid_uuid_array', locale),
+          });
+        } else {
+          const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+          for (const id of parsedInterestedCategoryIds) {
+            if (!uuidRegex.test(id)) {
+              errors.push({
+                field: 'interested_category_ids',
+                message: getMessage('validation/invalid_uuid', locale),
+              });
+              break; // one error per field is enough
+            }
+          }
+        }
+      } catch {
+        errors.push({
+          field: 'interested_category_ids',
+          message: getMessage('validation/invalid_uuid_array', locale),
+        });
+      }
+    }
+
+    let parsedDiplomaFields;
+    if (diploma_fields !== undefined) {
+      try {
+        parsedDiplomaFields = JSON.parse(diploma_fields);
+        if (!Array.isArray(parsedDiplomaFields)) {
+          errors.push({
+            field: 'diploma_fields',
+            message: getMessage('validation/invalid_uuid_array', locale),
+          });
+        } else {
+          // Validate each field
+          for (const field of parsedDiplomaFields) {
+            const { field_id, value } = field;
+            if (!field_id) {
+              errors.push({
+                field: 'diploma_fields',
+                message: getMessage('validation/invalid_diploma_field', locale),
+              });
+              break;
+            }
+            if (typeof value !== 'number' || isNaN(value) || value < 0 || value > 100) {
+              // Use the field_id to map to the specific input
+              errors.push({
+                field: `diploma_field_${field_id}`,
+                message: getMessage('validation/invalid_number', locale),
+              });
+            }
+          }
+        }
+      } catch {
+        errors.push({
+          field: 'diploma_fields',
+          message: getMessage('validation/invalid_uuid_array', locale),
+        });
+      }
+    }
+
+    if (errors.length > 0) {
+      return res.status(400).json({ errors });
+    }
+
+    let uploadedPicUrl = null;
+    if (req.file) {
+      try {
+        uploadedPicUrl = await uploadFileToUploader(
+          req.file.buffer,
+          req.file.mimetype,
+          locale
+        );
+      } catch (uploadErr) {
+        logger.error(`Profile picture upload failed: ${uploadErr.message}`);
+        return res.status(400).json({
+          errors: [{
+            field: 'profile_pic',
+            message: getMessage('validation/image_upload_failed', locale),
+          }],
+        });
+      }
+    }
+
+    // ─── Fetch old profile_pic BEFORE update ───
+    const oldPicResult = await client.query(
+      `SELECT profile_pic FROM users WHERE id = $1`,
+      [userId]
+    );
+    const oldProfilePic = oldPicResult.rows[0]?.profile_pic;
+
+    // ─── Build dynamic updates ───
     const updates = [];
     const values = [];
     let paramIndex = 1;
@@ -1392,18 +1670,28 @@ async function updateProfile(req, res, next) {
     addField('last_name', last_name?.trim());
     addField('year_of_birth', year_of_birth);
     addField('is_dropout', is_dropout);
+    if (uploadedPicUrl) {
+      addField('profile_pic', uploadedPicUrl);
+    }
 
     const hasAnyUpdate =
       updates.length > 0 ||
-      interested_category_ids !== undefined ||
+      parsedInterestedCategoryIds !== undefined ||
       diploma_id !== undefined;
 
     if (!hasAnyUpdate) {
-      return res.status(400).json({ error: getMessage('validation/no_fields_to_update', locale) });
+      return res.status(400).json({
+        errors: [{
+          field: 'general',
+          message: getMessage('validation/no_fields_to_update', locale),
+        }],
+      });
     }
 
+    // ─── Begin Transaction
     await client.query('BEGIN');
 
+    // 1. Update user fields
     if (updates.length > 0) {
       values.push(userId);
       await client.query(
@@ -1412,38 +1700,39 @@ async function updateProfile(req, res, next) {
       );
     }
 
-    if (interested_category_ids !== undefined) {
+    // 2. Update interests (using parsed array)
+    if (parsedInterestedCategoryIds !== undefined) {
       await client.query('DELETE FROM user_interested_categories WHERE user_id = $1', [userId]);
-      if (Array.isArray(interested_category_ids) && interested_category_ids.length > 0) {
-        const placeholders = interested_category_ids.map((_, i) => `($1, $${i + 2})`).join(',');
+      if (Array.isArray(parsedInterestedCategoryIds) && parsedInterestedCategoryIds.length > 0) {
+        const placeholders = parsedInterestedCategoryIds.map((_, i) => `($1, $${i + 2})`).join(',');
         await client.query(
           `INSERT INTO user_interested_categories (user_id, category_id) VALUES ${placeholders}`,
-          [userId, ...interested_category_ids]
+          [userId, ...parsedInterestedCategoryIds]
         );
       }
     }
 
-    if (diploma_id) {
+    // 3. Update diplomas
+    const isDropoutValue = is_dropout !== undefined ? is_dropout : false;
+
+    if (isDropoutValue) {
+      await client.query('DELETE FROM user_diplomas WHERE user_id = $1', [userId]);
+    } else if (diploma_id) {
+      await client.query('DELETE FROM user_diplomas WHERE user_id = $1', [userId]);
+
       const upserted = await client.query(
         `INSERT INTO user_diplomas (user_id, diploma_id, general_grade, obtained_year)
          VALUES ($1, $2, $3, $4)
-         ON CONFLICT (user_id) DO UPDATE
-           SET diploma_id = EXCLUDED.diploma_id,
-               general_grade = EXCLUDED.general_grade,
-               obtained_year = EXCLUDED.obtained_year,
-               updated_at = NOW()
          RETURNING id`,
         [userId, diploma_id, diploma_note ?? null, diploma_year ?? null]
       );
       const userDiplomaId = upserted.rows[0].id;
 
-      if (Array.isArray(diploma_fields) && diploma_fields.length > 0) {
-        for (const { field_id, value } of diploma_fields) {
+      if (Array.isArray(parsedDiplomaFields) && parsedDiplomaFields.length > 0) {
+        for (const { field_id, value } of parsedDiplomaFields) {
           await client.query(
             `INSERT INTO user_diploma_fields (user_diploma_id, field_id, value)
-             VALUES ($1, $2, $3)
-             ON CONFLICT (user_diploma_id, field_id) DO UPDATE
-               SET value = EXCLUDED.value, updated_at = NOW()`,
+             VALUES ($1, $2, $3)`,
             [userDiplomaId, field_id, value]
           );
         }
@@ -1452,13 +1741,78 @@ async function updateProfile(req, res, next) {
 
     await client.query('COMMIT');
 
+    // ─── Fire‑and‑forget old image deletion ──────────────────
+    if (uploadedPicUrl && oldProfilePic && oldProfilePic !== uploadedPicUrl) {
+      deleteOldProfileImage(oldProfilePic, locale);
+    }
+
     const user = await getFullUserProfile(userId, locale);
     return res.json({ user, message: getMessage('success/profile_updated', locale) });
+
   } catch (error) {
     await client.query('ROLLBACK');
     next(error);
   } finally {
     client.release();
+  }
+}
+
+async function changeOwnPassword(req, res, next) {
+  try {
+    const locale = getLocale(req);
+    const { current_password, new_password } = req.body;
+    const userId = req.user.id;
+
+    const userResult = await pool.query(
+      `SELECT id, password_hash, auth_provider, change_password_attempts, change_password_locked_until FROM users WHERE id = $1`,
+      [userId]
+    );
+    if (userResult.rows.length === 0) {
+      return res.status(404).json({ error: getMessage('auth/user_not_found', locale) });
+    }
+    const user = userResult.rows[0];
+
+    if (user.auth_provider !== 'LOCAL') {
+      return res.status(400).json({ error: getMessage('auth/password_not_available_for_google', locale) });
+    }
+
+    if (user.change_password_locked_until && new Date(user.change_password_locked_until) > new Date()) {
+      return res.status(429).json({ error: getMessage('auth/too_many_password_change_attempts', locale) });
+    }
+
+    const isValid = await bcrypt.compare(current_password, user.password_hash);
+    if (!isValid) {
+      const attempts = (user.change_password_attempts || 0) + 1;
+      const lockedUntil = attempts >= parseInt(process.env.CHANGE_OWN_PASSWORD_ATTEMPTS) ? new Date(Date.now() + parseInt(process.env.CHANGE_OWN_PASSWORD_LOCKOUT_MINUTES) * 60 * 1000) : null;
+
+      await pool.query(
+        `UPDATE users
+         SET change_password_attempts = $1,
+             change_password_locked_until = $2
+         WHERE id = $3`,
+        [attempts, lockedUntil, userId]
+      );
+
+      return res.status(400).json({ error: getMessage('auth/invalid_password', locale) });
+    }
+
+    const saltRounds = parseInt(process.env.BCRYPT_ROUNDS) || 12;
+    const passwordHash = await bcrypt.hash(new_password, saltRounds);
+
+    const isSameAsOld = await bcrypt.compare(new_password, user.password_hash);
+    if (isSameAsOld) {
+      return res.status(400).json({ error: getMessage('auth/enter_new_password', locale)});
+    }
+
+    await pool.query(`UPDATE users SET password_hash = $1 WHERE id = $2`, [passwordHash, userId]);
+
+      const rawRefreshToken = req.cookies?.refresh_token;
+    const currentRefreshTokenHash = rawRefreshToken ? hashRefreshToken(rawRefreshToken) : null;
+    await refreshTokenModel.revokeAllUserTokens(userId, currentRefreshTokenHash);
+
+    return res.json({ message: getMessage('success/password_changed', locale) });
+  } catch (error) {
+    next(error);
   }
 }
 
@@ -1481,4 +1835,5 @@ module.exports = {
   googleRedirect,
   googleCallback,
   updateProfile,
+  changeOwnPassword,
 };

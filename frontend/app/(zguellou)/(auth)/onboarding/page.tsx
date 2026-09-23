@@ -9,7 +9,6 @@ import Input from '@/components/input';
 import FullButton from '@/components/full-button';
 import Dropdown from '@/components/dropdown';
 import ToggleSwitch from '@/components/toggle-switch';
-import CheckBoxCard from '@/components/checkbox-card';
 import CategoryCard from '@/components/category-card';
 
 import FirstNameIcon from '@/public/icons/auth/label/FirstNameIcon';
@@ -18,29 +17,20 @@ import YearIcon from '@/public/icons/auth/label/YearIcon';
 import SkipIcon from '@/public/icons/auth/SkipIcon';
 import ArrowRightIcon from '@/public/icons/auth/ArrowRight';
 import InfoIcon from '@/public/icons/auth/InfoIcon';
-import FiliereIcon from '@/public/icons/auth/label/FiliereIcon';
-import BackpackIcon from '@/public/icons/auth/label/BackpackIcon';
-import { FiChevronDown } from 'react-icons/fi';
 
-import AgricultureIcon from '@/public/icons/auth/categories/AgricultureIcon';
-import CommunicationIcon from '@/public/icons/auth/categories/CommunicationIcon';
-import DefenseIcon from '@/public/icons/auth/categories/DefenseIcon';
-import EconomyIcon from '@/public/icons/auth/categories/EconomyIcon';
-import EducationIcon from '@/public/icons/auth/categories/EducationIcon';
-import HealthIcon from '@/public/icons/auth/categories/HealthIcon';
-import IslamIcon from '@/public/icons/auth/categories/IslamIcon';
-import MarineIcon from '@/public/icons/auth/categories/MarineIcon';
-import ScienceIcon from '@/public/icons/auth/categories/ScienceIcon';
-import SportIcon from '@/public/icons/auth/categories/SportIcon';
-import TourismeIcon from '@/public/icons/auth/categories/TourismeIcon';
-import UrbanismeIcon from '@/public/icons/auth/categories/UrbanismeIcon';
+import {
+  CURRENT_YEAR,
+  BIRTH_YEARS,
+  DIPLOMA_LEVELS,
+  categoryIconMap,
+} from '@/app/(zguellou)/constants'
 
 type OnboardingFormData = {
   first_name: string;
   last_name: string;
   year_of_birth: string;
   is_dropout: boolean;
-  diploma_level: string; // '' | '0' | '2' | '3' | '5' | '8'
+  diploma_level: string;
   diploma_id: string;
   diploma_note: string;
   diploma_year: string;
@@ -66,28 +56,6 @@ const DEFAULT_FORM_DATA: OnboardingFormData = {
   diploma_fields: {},
   interested_category_ids: [],
 };
-const DIPLOMA_LEVELS = [
-  { value: '12', labelKey: 'bac' },        // rank 12 = BAC
-  { value: '14', labelKey: 'bacPlus2' },   // rank 14 = BAC+2
-  { value: '15', labelKey: 'bacPlus3' },   // rank 15 = BAC+3
-  { value: '17', labelKey: 'bacPlus5' },   // rank 17 = BAC+5
-  { value: '20', labelKey: 'doctorate' },  // rank 20 = DOCTORAT
-];
-
-const categoryIconMap: Record<string, React.ComponentType<React.SVGProps<SVGSVGElement>>> = {
-  'AGRICULTURE_ENVIRONMENT_SUSTAINABLE': AgricultureIcon,
-  'DEFENSE_SECURITY': DefenseIcon,
-  'ECONOMICS_TRADE_MANAGEMENT': EconomyIcon,
-  'EDUCATION_TEACHING': EducationIcon,
-  'ISLAMIC_SCIENCES': IslamIcon,
-  'LANGUAGES_CULTURE_ARTS_SOCIAL': CommunicationIcon,
-  'MARITIME': MarineIcon,
-  'MEDICAL_PARAMEDICAL': HealthIcon,
-  'SCIENCE_TECHNOLOGY_ENGINEERING': ScienceIcon,
-  'SPORTS_PHYSICAL_EDUCATION': SportIcon,
-  'TOURISM_HOSPITALITY': TourismeIcon,
-  'URBAN_PLANNING_PUBLIC_WORKS_LOGISTICS': UrbanismeIcon,
-};
 
 const STEP_FIELDS: Record<number, (keyof OnboardingFormData)[]> = {
   2: ['first_name', 'last_name', 'year_of_birth'],
@@ -96,8 +64,6 @@ const STEP_FIELDS: Record<number, (keyof OnboardingFormData)[]> = {
 };
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const CURRENT_YEAR = new Date().getFullYear();
-const BIRTH_YEARS = Array.from({ length: CURRENT_YEAR - 1900 + 1 }, (_, i) => CURRENT_YEAR - i);
 
 function validateStep(
   step: number,
@@ -150,7 +116,7 @@ function validateStep(
     Object.entries(data.diploma_fields).forEach(([fieldId, raw]) => {
       if (raw) {
         const value = Number(raw);
-        if (Number.isNaN(value) || value < 0 || value > 999) {
+        if (Number.isNaN(value) || value < 0 || value > 100) {
           errors[`field_${fieldId}`] = t('step3.invalidNumber');
         }
       }
@@ -338,7 +304,7 @@ const Step3Content = ({
 
 const Step4Content = ({ formData, errors, updateField, t, categories, categoryIconMap }: any) => {
   const toggleCategory = (id: string) => {
-    updateField('interested_category_ids', 
+    updateField('interested_category_ids',
       formData.interested_category_ids.includes(id)
         ? formData.interested_category_ids.filter((v: string) => v !== id)
         : [...formData.interested_category_ids, id]
@@ -351,16 +317,17 @@ const Step4Content = ({ formData, errors, updateField, t, categories, categoryIc
         <p className="text-sm font-bold uppercase tracking-wide text-(--color-text)">
           {t('step4.categoriesTitle')}
         </p>
-        
+
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
           {categories.map((category: any) => {
             const IconComponent = categoryIconMap[category.name];
+
             return (
               <CategoryCard
                 key={category.id}
                 id={category.id}
                 label={category.translation_name}
-                icon={<IconComponent className="w-10 h-10"/>}
+                icon={IconComponent ? <IconComponent className="w-10 h-10" /> : ''}
                 isSelected={formData.interested_category_ids.includes(category.id)}
                 onToggle={toggleCategory}
               />
@@ -386,7 +353,6 @@ export default function OnboardingPage() {
   const [finished, setFinished] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
-  // Cookie helpers
   function getCookie(name: string): string | null {
     if (typeof document === 'undefined') return null;
     const match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
@@ -543,43 +509,54 @@ export default function OnboardingPage() {
 
     setSubmitting(true);
 
-    const payload: Record<string, unknown> = {};
-    if (finalData.first_name) payload.first_name = finalData.first_name.trim();
-    if (finalData.last_name) payload.last_name = finalData.last_name.trim();
-    if (finalData.year_of_birth) payload.year_of_birth = Number(finalData.year_of_birth);
-    if (finalData.is_dropout) payload.is_dropout = finalData.is_dropout;
-    if (finalData.diploma_id) payload.diploma_id = finalData.diploma_id;
-    if (finalData.diploma_note) payload.diploma_note = Number(finalData.diploma_note);
-    if (finalData.diploma_year) payload.diploma_year = Number(finalData.diploma_year);
+    const formData = new FormData();
+
+    if (finalData.first_name) formData.append('first_name', finalData.first_name.trim());
+    if (finalData.last_name) formData.append('last_name', finalData.last_name.trim());
+    if (finalData.year_of_birth) formData.append('year_of_birth', finalData.year_of_birth);
+    if (finalData.is_dropout) formData.append('is_dropout', String(finalData.is_dropout));
+    if (finalData.diploma_id) formData.append('diploma_id', finalData.diploma_id);
+    if (finalData.diploma_note) formData.append('diploma_note', finalData.diploma_note);
+    if (finalData.diploma_year) formData.append('diploma_year', finalData.diploma_year);
+
     const fieldEntries = Object.entries(finalData.diploma_fields).filter(([, v]) => v);
     if (fieldEntries.length > 0) {
-      payload.diploma_fields = fieldEntries.map(([field_id, value]) => ({
+      const fields = fieldEntries.map(([field_id, value]) => ({
         field_id,
         value: Number(value),
       }));
+      formData.append('diploma_fields', JSON.stringify(fields));
     }
+
     if (finalData.interested_category_ids.length > 0) {
-      payload.interested_category_ids = finalData.interested_category_ids;
+      formData.append('interested_category_ids', JSON.stringify(finalData.interested_category_ids));
     }
 
     try {
       const res = await authFetch(`${process.env.NEXT_PUBLIC_AUTH_API_URL}/api/auth/profile`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
+        body: formData,
       });
 
       if (!res.ok) {
         const errorData = await res.json();
-        throw new Error(errorData.error || errorData.message || 'Failed to update profile');
+        throw errorData;
       }
 
       clearCookie('onboarding_entry');
       clearStorage();
       router.replace('/profile');
-    } catch (error: any) {
-      console.error('Profile update error:', error);
-      setErrors((prev) => ({ ...prev, submit: error.message }));
+    } catch (err: any) {
+      console.error('Profile update error:', err);
+      if (err.errors && Array.isArray(err.errors)) {
+        const fieldErrorMap: Record<string, string> = {};
+        err.errors.forEach((e: any) => {
+          fieldErrorMap[e.field] = e.message;
+        });
+        setErrors(fieldErrorMap);
+      } else {
+        setErrors((prev) => ({ ...prev, submit: err.error || err.message || 'Unknown error' }));
+      }
       setSubmitting(false);
       clearStorage();
     }
@@ -620,7 +597,7 @@ export default function OnboardingPage() {
               <span className="border-2 border-(--color-text) bg-(--color-highlight) px-3 py-1 text-xs font-mono font-bold uppercase tracking-wide">
                 {t('stepOf', { step, total: 4 })}
               </span>
-              {step < 4 && 
+              {step < 4 &&
                 <button
                   onClick={handleSkipAll}
                   className="cursor-pointer flex-end text-xs font-bold uppercase tracking-wide underline decoration-2 underline-offset-4 hover:text-(--color-accent) transition-all duration-100 hover:-translate-y-0.5 active:translate-y-0.5"

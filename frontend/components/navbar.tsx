@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
 import { useRouter, usePathname } from 'next/navigation';
 import { useLocale, useTranslations } from 'next-intl';
 import { useAuth } from '@/app/(zguellou)/providers/AuthProvider';
@@ -11,8 +10,6 @@ import IconButton from './icon-button';
 import LanguageIcon from '@/public/icons/navbar/LanguageIcon';
 import BellIcon from '@/public/icons/navbar/BellIcon';
 
-type AuthStatus = 'loading' | 'signed-out' | 'signed-in';
-
 const LANGUAGES = [
   { code: 'en', label: 'EN' },
   { code: 'fr', label: 'FR' },
@@ -20,7 +17,7 @@ const LANGUAGES = [
 ];
 
 export default function Navbar() {
-  const { user, isLoading } = useAuth();
+  const { user } = useAuth();
   const [languageMenuOpen, setLanguageMenuOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [notificationsMenuOpen, setNotificationsMenuOpen] = useState(false);
@@ -32,6 +29,18 @@ export default function Navbar() {
   const t = useTranslations('navbar');
 
   const isActiveRoute = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
+  
+  const isAuthPage = [
+    '/login',
+    '/register',
+    '/forgot-password',
+    '/reset-password',
+    '/verify-2fa',
+    '/2fa-revoke',
+    '/force-change-password',
+    '/dashboard',
+    '/onboarding'
+  ].some((route) => pathname === route || pathname.startsWith(`${route}/`));
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -56,24 +65,25 @@ export default function Navbar() {
     };
   }, [mobileMenuOpen]);
 
-  const authStatus: AuthStatus = isLoading ? 'loading' : user ? 'signed-in' : 'signed-out';
-
   const cta = useMemo(() => {
-    if (authStatus === 'signed-in') {
-      return { label: t('profile'), href: '/profile' };
-    }
-    return { label: t('getStarted'), href: '/register' };
-  }, [authStatus, t]);
+    if (!user)
+      return { label: t('getStarted'), href: '/register' };
+
+    if (user.role === 'ADMIN' || user.role === 'SUPERADMIN')
+      return { label: t('dashboard'), href: '/dashboard' };
+
+    return { label: t('profile'), href: '/profile' };
+  }, [user, t]);
 
   const handleLanguageChange = (code: string) => {
     document.cookie = `locale=${code}; path=/; max-age=31536000`;
     setLanguageMenuOpen(false);
     setMobileMenuOpen(false);
-    window.location.href = pathname;
+    window.location.href = pathname + window.location.search;
   };
 
   return (
-    <div ref={menuRef} className="relative">
+    <div ref={menuRef} className="relative z-999">
       <header
         className={`border-2 border-x-0 border-t-0 border-(--color-text) bg-(--color-surface) ${mobileMenuOpen ? '' : 'shadow-[4px_4px_0_0_var(--color-text)]'
           }`}
@@ -87,30 +97,32 @@ export default function Navbar() {
             KHARITA
           </Link>
 
-          <nav className="hidden items-center gap-10 md:flex">
-            <Link
-              href="/map"
-              className={`text-sm font-medium underline decoration-3 underline-offset-10 transition-all duration-150 ${isActiveRoute('/map')
-                  ? '-translate-y-0.5 decoration-(--color-text) text-(--color-text)'
-                  : 'decoration-transparent hover:-translate-y-0.5 hover:text-(--color-text) hover:decoration-(--color-text)'
-                }`}
-            >
-              {t('links.map')}
-            </Link>
+          {!isAuthPage && (
+            <nav className="hidden items-center gap-10 md:flex">
+              <Link
+                href="/map"
+                className={`text-sm font-medium underline decoration-3 underline-offset-10 transition-all duration-150 ${isActiveRoute('/map')
+                    ? '-translate-y-0.5 decoration-(--color-text) text-(--color-text)'
+                    : 'decoration-transparent hover:-translate-y-0.5 hover:text-(--color-text) hover:decoration-(--color-text)'
+                  }`}
+              >
+                {t('links.map')}
+              </Link>
 
-            <Link
-              href="/universities"
-              className={`text-sm font-medium underline decoration-3 underline-offset-10 transition-all duration-150 ${isActiveRoute('/universities')
-                  ? '-translate-y-0.5 decoration-(--color-text) text-(--color-text)'
-                  : 'decoration-transparent hover:-translate-y-0.5 hover:text-(--color-text) hover:decoration-(--color-text)'
-                }`}
-            >
-              {t('links.universities')}
-            </Link>
-          </nav>
+              <Link
+                href="/universities"
+                className={`text-sm font-medium underline decoration-3 underline-offset-10 transition-all duration-150 ${isActiveRoute('/universities')
+                    ? '-translate-y-0.5 decoration-(--color-text) text-(--color-text)'
+                    : 'decoration-transparent hover:-translate-y-0.5 hover:text-(--color-text) hover:decoration-(--color-text)'
+                  }`}
+              >
+                {t('links.universities')}
+              </Link>
+            </nav>
+          )}
 
           <div className="flex items-center gap-3">
-            {user &&
+            {!isAuthPage && user &&
               <button
                 type="button"
                 aria-label="Notifications"
@@ -128,7 +140,9 @@ export default function Navbar() {
               </button>
             }
 
-            <FullButton href={cta.href} text={cta.label} backgroundColor="var(--color-accent-soft)" className="justify-center" />
+            {!isAuthPage && (
+              <FullButton href={cta.href} isActive={isActiveRoute(cta.href)} text={cta.label} backgroundColor="var(--color-accent-soft)" className="justify-center" />
+            )}
 
             <div className="hidden md:block">
               <div className={`relative ${languageMenuOpen ? 'shadow-[2px_2px_0_0_var(--color-text)]' : ''}`}>
@@ -201,7 +215,7 @@ export default function Navbar() {
             className="fixed inset-0 top-18 z-40 bg-black/30 backdrop-blur-sm"
             onClick={() => setMobileMenuOpen(false)}
           />
-          <div className="fixed left-0 right-0 top-18 z-50 border-b-2 border-(--color-text) bg-(--color-surface) shadow-[4px_4px_0_0_var(--color-text)]">
+          <div className="fixed left-0 right-0 z-50 border-b-2 border-(--color-text) bg-(--color-surface) shadow-[4px_4px_0_0_var(--color-text)]">
             <div className="flex flex-col gap-4 p-6">
               <IconButton
                 href="/map"

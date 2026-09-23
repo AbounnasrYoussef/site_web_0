@@ -11,6 +11,7 @@
             "universities": "Universities"
         },
         "getStarted": "Get Started",
+        "dashboard": "Dashboard",
         "profile": "Profile",
         "language": {
             "en": "EN",
@@ -145,22 +146,34 @@
             "sessionExpired": "Your verification session has expired. Please log in again."
         },
         "revoke": {
-            "title": "Was this you?",
+            "title": "Secure Your Account",
+            "kicker": "Security // Suspicious Login",
+            "description": "If you did not initiate this login, revoke all active sessions now. You will be signed out everywhere and asked to set a new password.",
+            "confirm": "Revoke All Sessions",
+            "cancel": "No, This Was Me",
+            "revoking": "Revoking…",
             "successTitle": "Account Secured",
-            "description": "If you did not initiate this login, click confirm to revoke all active sessions and secure your account.",
             "success": "All active sessions have been revoked. You will be redirected to login.",
-            "confirm": "Confirm",
-            "revoking": "Revoking...",
-            "cancel": "Cancel"
+            "errors": {
+                "missingToken": "This link is missing or expired.",
+                "generic": "Something went wrong. Please try again."
+            }
         }
     },
     "profile": {
+        "updatePassword": "Update",
+        "changePicture": "Change picture",
+        "uploading": "Uploading...",
         "classOf": "Class of",
         "title": "PROFILE",
         "role": "Role",
         "loading": "Loading...",
         "redirecting": "Redirecting...",
         "edit": "EDIT PROFILE",
+        "save": "Save",
+        "saving": "Saving...",
+        "cancel": "Cancel",
+        "editError": "Failed to update profile.",
         "personalInfo": "Personal Information",
         "firstName": "First Name",
         "lastName": "Last Name",
@@ -192,6 +205,9 @@
         "diplomaYear": "Year",
         "diplomaFields": "Additional Details",
         "securitySettings": "Security Settings",
+        "imageMimeTypeError": "Only JPEG and PNG images are allowed.",
+        "imageSizeError": "Image must be smaller than 10MB.",
+        "imageCorruptError": "This file doesn't look like a valid image.",
         "2fa": {
             "remaining": "remaining",
             "title": "Two-Factor Authentication",
@@ -208,6 +224,18 @@
             "disabled": "2FA disabled successfully!",
             "toggleError": "Failed to toggle 2FA",
             "adminRequired": "2FA is mandatory for admin accounts - cannot be disabled."
+        },
+        "changePassword": {
+            "title": "Change Password",
+            "currentPlaceholder": "Current password",
+            "newPlaceholder": "New password",
+            "confirmPlaceholder": "Confirm new password",
+            "passwordPlaceholder": "••••••••",
+            "newHelper": "At least 8 characters, with uppercase, lowercase, a digit and a special character.",
+            "currentRequired": "Current password is required.",
+            "confirm": "Update Password",
+            "saving": "Updating…",
+            "error": "Failed to change password."
         },
         "logout": "LOGOUT"
     },
@@ -270,7 +298,7 @@
         },
         "step4": {
             "title": "Final Alignment",
-            "subtitle": "Select your interests and cities to finalize your personalized career map.",
+            "subtitle": "Select your interests to finalize your personalized career map.",
             "categoriesTitle": "Select your interests (pick 1 or more)"
         }
     },

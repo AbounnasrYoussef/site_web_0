@@ -45,7 +45,7 @@ const t = useTranslations("chatbot")
 const [messages, setMessages] = useState<{ role: string ,content: string }[]>([
   {
     role: "assistant",
-    content: t("greeting", { userId: user_Id ?? "" }),
+    content: t("greeting", { userId: userName ?? "" }),
   },
 ])
 
@@ -58,32 +58,36 @@ useEffect(() => {
     chatRef.current.scrollTop = chatRef.current.scrollHeight
   }, [messages, isLoading])
 
-  useEffect(() => {
+useEffect(() => {
   if (!isInitialized)
     return
-  if (!user || !accessToken)
-    return
 
-  const fetchProfile = async () => {
-    try {
-      const res = await authFetch(`${process.env.NEXT_PUBLIC_AUTH_API_URL}/api/auth/profile`, {
-        method: 'GET',
-      })
-
-      if (!res.ok)
-        throw new Error('Failed to fetch profile')
-
-      const data = await res.json()
-      setUser_Id(data.user.id)
-      setUserName(`${data.user.first_name} ${data.user.last_name}`)
-    } catch (error) {
-      console.error('Profile fetch error:', error)
+  if (user && accessToken) {
+    const fetchProfile = async () => {
+      try {
+        const res = await authFetch(`${process.env.NEXT_PUBLIC_AUTH_API_URL}/api/auth/profile`, {
+          method: 'GET',
+        })
+        if (!res.ok) throw new Error('Failed to fetch profile')
+        const data = await res.json()
+        setUser_Id(data.user.id)
+        setUserName(`${data.user.first_name} ${data.user.last_name}`)
+      } catch (error) {
+        console.error('Profile fetch error:', error)
+      }
     }
+    fetchProfile()
+    return
   }
 
-  fetchProfile()
+  let guestId = localStorage.getItem("chatbot_guest_id")
+  if (!guestId) {
+    guestId = crypto.randomUUID()
+    localStorage.setItem("chatbot_guest_id", guestId)
+  }
+  setUser_Id(guestId)
+  setUserName(null)
 }, [isInitialized, user, accessToken])
-
 
 useEffect(() => {
   if (!user_Id) return
@@ -94,33 +98,57 @@ useEffect(() => {
     setMessages(JSON.parse(savedMessages))
   } else {
     setMessages([
-      { role: "assistant", content: t("greeting", { userId: user_Id ?? "" }),},
+      { role: "assistant", content: t("greeting", { userId: userName ?? "" }),},
     ])
   }
 }, [user_Id, userName])
 
 
-async function handleSend()
-{
+async function handleSend() {
   if (!input.trim() || !user_Id)
     return
+
+  const question = input
+
   setMessages((prev) => [
     ...prev,
-    {role: "user",content: input,},
+    { role: "user", content: question },
+    { role: "assistant", content: "" },
   ])
+
   setInput("")
   setIsLoading(true)
+
   try {
-    const data = await sendMessage(user_Id,input, locale)
-    setMessages((prev) => [
-      ...prev,
-      {role: "assistant",content: data.answer ?? "No answer received.",},
-    ])
+    let answer = ""
+
+    await sendMessage(user_Id, question, locale, (chunk) => {
+      answer += chunk
+
+      setMessages((prev) => {
+        const updated = [...prev]
+
+        updated[updated.length - 1] = {
+          role: "assistant",
+          content: answer,
+        }
+
+        return updated
+      })
+    })
   } catch (error) {
-    setMessages((prev) => [
-      ...prev,
-      {role: "assistant",content: "Something went wrong.",},
-    ])
+    console.error("Chat error:", error)
+
+    setMessages((prev) => {
+      const updated = [...prev]
+
+      updated[updated.length - 1] = {
+        role: "assistant",
+        content: "Something went wrong.",
+      }
+
+      return updated
+    })
   } finally {
     setIsLoading(false)
   }
@@ -138,7 +166,7 @@ async function resetChat() {
     setMessages([
       {
         role: "assistant",
-        content: t("greeting", { userId: user_Id ?? "" }),
+        content: t("greeting", { userId: userName ?? "" }),
       },
     ])
 
@@ -242,7 +270,8 @@ async function resetChat() {
                 >
                   {message.role === "assistant" ? (
                   isLastMessage ? (
-                    <AnimatedMessage text={message.content} />
+                    // <AnimatedMessage text={message.content} />
+                    <ReactMarkdown>{message.content}</ReactMarkdown>
                   ) : (
                     <ReactMarkdown>{message.content}</ReactMarkdown>
                   )

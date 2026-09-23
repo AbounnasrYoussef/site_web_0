@@ -1,15 +1,15 @@
 'use client';
 
 import { useState } from 'react';
-import Sidebar from '@/components/Sidebar';
-import AddUniversityModal from '@/components/AddUniversityModal';
+// import Sidebar from '@/components/Sidebar';
+import AddUniversityModal from '@/components/(yabounna)/AddUniversityModal';
 
 export default function UniversitiesPage() {
   const [showModal, setShowModal] = useState(false);
 
   return (
     <div className="flex min-h-screen text-(--color-text) squared-bg">
-      <Sidebar />
+      {/* <Sidebar /> */}
 
       <main className="flex-1 p-8 relative">
         <h1 className="text-3xl font-black uppercase mb-6">Universities</h1>

@@ -1,12 +1,12 @@
 from fastapi import FastAPI
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
 
 from rag import (
-    profiles,
     sessions,
     build_system_prompt,
-    call_llm,
+    call_llm_stream,
     classify_question,
     get_path_context,
     get_profile_from_pdf,
@@ -32,7 +32,7 @@ class ChatRequest(BaseModel):
     locale: str = "en"
     
     
-app = FastAPI()
+app = FastAPI() 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:3000"],
@@ -46,13 +46,6 @@ app.add_middleware(
 def read():
     read_all()
 
-
-
-@app.post("/profile")
-def create_profile(req: ProfileRequest):
-    profile_text = f"Nom: {req.nom}\nAge: {req.age}\nBac: {req.bac}\nMoyenne bac: {req.moyenne}\nMetier vise: {req.job}"
-    profiles[req.user_id] = profile_text
-    return profile_text
 
 @app.delete("/chat/{user_id}")
 def reset_chat(user_id: str):
@@ -71,12 +64,8 @@ def chat(req: ChatRequest):
     language = language_map.get(req.locale, "English")
 
     profile_text = get_profile_from_pdf(req.user_id)
-
     if profile_text is None:
-        profile_text = profiles.get(req.user_id)
-
-    if profile_text is None:
-        return "profile_not_found"
+        profile_text = None
 
     if req.user_id not in sessions:
         sessions[req.user_id] = [
@@ -97,13 +86,14 @@ def chat(req: ChatRequest):
     {req.question}
     """
     if category == "OUT_OF_DOMAIN":
-        return {
-            "answer": {
+        return StreamingResponse(
+            iter([{
                 "en": "I can only help with education and career guidance in Morocco — universities, schools, programs, admissions, studies, jobs, and career paths.",
                 "fr": "Je peux uniquement vous aider concernant l'éducation et l'orientation professionnelle au Maroc — universités, écoles, formations, admissions, études, métiers et parcours professionnels.",
                 "ar": "يمكنني مساعدتك فقط في التعليم والتوجيه الدراسي والمهني في المغرب — الجامعات والمدارس والتكوينات والقبول والدراسة والمهن والمسارات المهنية."
-            }.get(req.locale, "I can only help with education and career guidance in Morocco.")
-        }
+            }.get(req.locale, "I can only help with education and career guidance in Morocco.")]),
+            media_type="text/plain"
+)
 
     elif category == "MY_PATH":
         path_context = get_path_context(req.user_id, req.question)
@@ -143,6 +133,14 @@ def chat(req: ChatRequest):
             USER QUESTION:
             {req.question}
             """
+    elif category == "SMALL_TALK":
+        user_message = f"""
+        LANGUAGE:
+        Respond entirely in {language}.
+
+        USER MESSAGE:
+        {req.question}
+        """
 
     elif category == "PERSONNEL":
         profile_text = get_profile_from_pdf(req.user_id)
@@ -164,15 +162,25 @@ def chat(req: ChatRequest):
         "content": user_message
     })
 
-    try:
-        answer = call_llm(sessions[req.user_id])
-    except Exception as e:
-        sessions[req.user_id].pop()
-        return {"error": str(e)}
+    def generate():
+        full_answer = ""
 
-    sessions[req.user_id].append({
-        "role": "assistant",
-        "content": answer
-    })
+        try:
+            for chunk in call_llm_stream(sessions[req.user_id]):
+                full_answer += chunk
+                yield chunk
 
-    return {"answer": answer}
+            sessions[req.user_id].append({
+                "role": "assistant",
+                "content": full_answer
+            })
+
+        except Exception as e:
+            sessions[req.user_id].pop()
+            yield f"ERROR: {e}"
+
+    return StreamingResponse(
+    generate(),
+    media_type="text/plain"
+)
+# What is Server-Sent Events (SSE)

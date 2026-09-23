@@ -11,7 +11,6 @@ reset:
 	docker compose down -v
 	@make up
 	@until docker compose exec -T db pg_isready -U admin; do sleep 1; done
-	@make populate
 
 destroy:
 	@make down

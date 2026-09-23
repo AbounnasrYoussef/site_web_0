@@ -1,19 +1,35 @@
-from sqlalchemy import create_engine, Column, Integer, String, DateTime, ForeignKey
-from sqlalchemy.orm import declarative_base, sessionmaker, relationship
+import os
 from datetime import datetime
+
 from dotenv import load_dotenv
-import os 
+from sqlalchemy import (
+    Boolean,
+    Column,
+    DateTime,
+    ForeignKey,
+    Integer,
+    String,
+    create_engine,
+)
+from sqlalchemy.orm import declarative_base, relationship, sessionmaker
+
 
 load_dotenv()
 
-DEV = os.getenv('DEV', True)
-if DEV:
-    DATABASE_URL = "sqlite:///./kharita.db"
-else:
-    DATABASE_URL = os.getenv("DATABASE_URL", None)
+DATABASE_URL = os.getenv("DATABASE_URL")
 
-engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+if not DATABASE_URL:
+    raise RuntimeError("DATABASE_URL is not set")
+
+
+engine = create_engine(DATABASE_URL)
+
+SessionLocal = sessionmaker(
+    autocommit=False,
+    autoflush=False,
+    bind=engine,
+)
+
 Base = declarative_base()
 
 
@@ -33,14 +49,19 @@ class University(Base):
     id = Column(Integer, primary_key=True, index=True)
     abbreviation = Column(String, nullable=False)
     type = Column(String, nullable=False)
-    has_dorms = Column(String, nullable=False)
-    has_scholarship = Column(String, nullable=False)
+    has_dorms = Column(Boolean, nullable=False)
+    has_scholarship = Column(Boolean, nullable=False)
 
     translations = relationship(
-        "UniversityTranslation", back_populates="university", cascade="all, delete"
+        "UniversityTranslation",
+        back_populates="university",
+        cascade="all, delete-orphan",
     )
+
     campuses = relationship(
-        "Campus", back_populates="university", cascade="all, delete"
+        "Campus",
+        back_populates="university",
+        cascade="all, delete-orphan",
     )
 
 
@@ -48,25 +69,43 @@ class UniversityTranslation(Base):
     __tablename__ = "university_translations"
 
     id = Column(Integer, primary_key=True, index=True)
-    university_id = Column(Integer, ForeignKey("universities.id"), nullable=False)
+
+    university_id = Column(
+        Integer,
+        ForeignKey("universities.id"),
+        nullable=False,
+    )
+
     language = Column(String, nullable=False)
     name = Column(String, nullable=False)
     description = Column(String, nullable=False)
 
-    university = relationship("University", back_populates="translations")
+    university = relationship(
+        "University",
+        back_populates="translations",
+    )
 
 
 class Campus(Base):
     __tablename__ = "campuses"
 
     id = Column(Integer, primary_key=True, index=True)
-    university_id = Column(Integer, ForeignKey("universities.id"), nullable=False)
+
+    university_id = Column(
+        Integer,
+        ForeignKey("universities.id"),
+        nullable=False,
+    )
+
     city = Column(String, nullable=False)
     maps_link = Column(String, nullable=True)
     website = Column(String, nullable=True)
     image_path = Column(String, nullable=True)
 
-    university = relationship("University", back_populates="campuses")
+    university = relationship(
+        "University",
+        back_populates="campuses",
+    )
 
 
 Base.metadata.create_all(bind=engine)

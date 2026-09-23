@@ -56,7 +56,7 @@ export function MapView({ className = "h-[600px] w-full" }: MapViewProps) {
   const isDetailedZoom = zoomLevel >= 9 || selectedCity !== null;
 
   return (
-    <Card className={`relative overflow-hidden border-2 border-black bg-[#f4f1ea] shadow-[6px_6px_0px_#000] rounded-3xl flex flex-col ${className}`}>
+    <Card className={`relative overflow-hidden border-2 border-black bg-[var(--color-bg)] shadow-[6px_6px_0px_#000] rounded-3xl flex flex-col ${className}`}>
       <div className="flex flex-wrap items-center justify-between gap-2 p-3 border-b-2 border-black bg-[#faf7f2] z-[1000] relative">
         <div className="flex items-center gap-2 flex-wrap">
           <button
@@ -92,14 +92,14 @@ export function MapView({ className = "h-[600px] w-full" }: MapViewProps) {
         )}
       </div>
 
-      <div className="relative flex-1 w-full min-h-[450px] bg-[#f4f1ea]">
+      <div className="relative flex-1 w-full min-h-[450px] bg-[var(--color-bg)]">
         <MapContainer
           center={DEFAULT_CENTER}
           zoom={5.2}
           minZoom={4.2}
           maxZoom={16}
           scrollWheelZoom={true}
-          className="w-full h-full bg-[#f4f1ea]"
+          className="w-full h-full bg-[var(--color-bg)]"
           zoomControl={true}
           maxBounds={MOROCCO_BOUNDS_LEAFLET}
           maxBoundsViscosity={1.0}

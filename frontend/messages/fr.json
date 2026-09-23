@@ -12,6 +12,7 @@
         },
         "getStarted": "Commencer",
         "profile": "Profil",
+        "dashboard": "Tableau de bord",
         "language": {
             "en": "EN",
             "fr": "FR",
@@ -140,22 +141,35 @@
             "sessionExpired": "Votre session de vérification a expiré. Veuillez vous reconnecter."
         },
         "revoke": {
-            "title": "Étiez-vous ?",
+            "title": "Sécurisez votre compte",
+            "kicker": "Sécurité // Connexion suspecte",
+            "description": "Si vous n’êtes pas à l’origine de cette connexion, révoquez toutes les sessions actives maintenant. Vous serez déconnecté de tous les appareils et invité à définir un nouveau mot de passe.",
+            "confirm": "Révoquer toutes les sessions",
+            "cancel": "Non, c’était bien moi",
+            "revoking": "Révocation…",
             "successTitle": "Compte sécurisé",
-            "description": "Si vous n'êtes pas à l'origine de cette connexion, cliquez sur confirmer pour révoquer toutes les sessions actives et sécuriser votre compte.",
-            "success": "Toutes les sessions actives ont été révoquées. Vous serez redirigé vers la page de connexion.",
-            "confirm": "Confirmer",
-            "revoking": "Révocation...",
-            "cancel": "Annuler"
+            "success": "Toutes les sessions actives ont été révoquées. Vous allez être redirigé vers la page de connexion.",
+            "errors": {
+                "missingToken": "Ce lien est manquant ou a expiré.",
+                "generic": "Une erreur s’est produite. Veuillez réessayer."
+            }
         }
+
     },
     "profile": {
+        "updatePassword": "Mettre à jour",
+        "changePicture": "Changer la photo",
+        "uploading": "Téléchargement...",
         "classOf": "Promotion",
         "title": "PROFIL",
         "role": "Rôle",
         "loading": "Chargement...",
         "redirecting": "Redirection...",
         "edit": "MODIFIER LE PROFIL",
+        "save": "Enregistrer",
+        "saving": "Enregistrement...",
+        "cancel": "Annuler",
+        "editError": "Échec de la mise à jour du profil.",
         "personalInfo": "Informations personnelles",
         "firstName": "Prénom",
         "lastName": "Nom",
@@ -187,6 +201,9 @@
         "diplomaYear": "Année",
         "diplomaFields": "Détails supplémentaires",
         "securitySettings": "Paramètres de sécurité",
+        "imageMimeTypeError": "Seules les images JPEG et PNG sont autorisées.",
+        "imageSizeError": "L’image doit faire moins de 10 Mo.",
+        "imageCorruptError": "Ce fichier ne semble pas être une image valide.",
         "2fa": {
             "remaining": "restant",
             "title": "Authentification à deux facteurs",
@@ -201,7 +218,20 @@
             "cancel": "Annuler",
             "enabled": "2FA a été activé avec succès.",
             "disabled": "2FA a été désactivé avec succès.",
-            "toggleError": "Échec de la mise à jour de 2FA. Vérifiez votre mot de passe et réessayez."
+            "toggleError": "Échec de la mise à jour de 2FA. Vérifiez votre mot de passe et réessayez.",
+            "adminRequired": "L'authentification à deux facteurs est obligatoire pour les comptes administrateur - ne peut pas être désactivée."
+        },
+        "changePassword": {
+            "title": "Changer le mot de passe",
+            "currentPlaceholder": "Mot de passe actuel",
+            "newPlaceholder": "Nouveau mot de passe",
+            "confirmPlaceholder": "Confirmer le nouveau mot de passe",
+            "passwordPlaceholder": "••••••••",
+            "newHelper": "Au moins 8 caractères, avec majuscule, minuscule, chiffre et caractère spécial.",
+            "currentRequired": "Le mot de passe actuel est requis.",
+            "confirm": "Mettre à jour le mot de passe",
+            "saving": "Mise à jour…",
+            "error": "Échec du changement de mot de passe."
         },
         "logout": "Se déconnecter"
     },
@@ -315,7 +345,7 @@
     },
     "step4": {
         "title": "Alignement final",
-        "subtitle": "Sélectionnez vos centres d'intérêt et vos villes pour finaliser votre carte de carrière personnalisée.",
+        "subtitle": "Sélectionnez vos centres d'intérêt pour finaliser votre carte de carrière personnalisée.",
         "categoriesTitle": "Sélectionnez vos centres d'intérêt (choisissez 1 ou plus)"
     }
     },

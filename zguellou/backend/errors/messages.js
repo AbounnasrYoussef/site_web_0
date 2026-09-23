@@ -85,9 +85,9 @@ const messages = {
     ar: 'محاولات كثيرة جدًا. يرجى طلب رابط جديد.',
   },
   'auth/account_locked': {
-    en: 'Your account is locked due to too many failed attempts. Please try again after 15 minutes.',
-    fr: 'Votre compte est verrouillé en raison de trop de tentatives échouées. Veuillez réessayer dans 15 minutes.',
-    ar: 'تم قفل حسابك بسبب كثرة المحاولات الفاشلة. يرجى المحاولة مرة أخرى بعد 15 دقيقة.',
+    en: 'Your account is temporarily locked due to too many failed attempts. Please try again in 15 minutes, or check your email to reset your password and unlock it immediately.',
+    fr: 'Votre compte est temporairement verrouillé en raison de trop de tentatives échouées. Réessayez dans 15 minutes, ou consultez votre boîte mail pour réinitialiser votre mot de passe et déverrouiller immédiatement votre compte.',
+    ar: 'تم قفل حسابك مؤقتًا بسبب كثرة المحاولات الفاشلة. يرجى المحاولة مرة أخرى خلال 15 دقيقة، أو تحقق من بريدك الإلكتروني لإعادة تعيين كلمة المرور وإلغاء القفل فورًا.',
   },
   'auth/2fa_required': {
     en: 'Two-factor authentication is required.',
@@ -154,6 +154,26 @@ const messages = {
     fr: 'L\'authentification à deux facteurs est obligatoire pour les comptes administrateur et ne peut pas être désactivée.',
     ar: 'المصادقة ذات العاملين إلزامية لحسابات المدير ولا يمكن تعطيلها.',
   },
+  'auth/password_not_available_for_google': {
+    en: 'This account was created with Google. Password change is not available.',
+    fr: 'Ce compte a été créé avec Google. Le changement de mot de passe n\'est pas disponible.',
+    ar: 'تم إنشاء هذا الحساب باستخدام Google. تغيير كلمة المرور غير متاح.',
+  },
+  'auth/too_many_password_change_attempts': {
+    en: 'Too many failed password change attempts. Your account is temporarily locked for 15 minutes.',
+    fr: 'Trop de tentatives de changement de mot de passe échouées. Votre compte est temporairement verrouillé pendant 15 minutes.',
+    ar: 'محاولات كثيرة فاشلة لتغيير كلمة المرور. تم قفل حسابك مؤقتًا لمدة 15 دقيقة.',
+  },
+  'auth/enter_new_password': {
+    en: 'New password must be different from the current one.',
+    fr: 'Le nouveau mot de passe doit être différent du mot de passe actuel.',
+    ar: 'يجب أن تكون كلمة المرور الجديدة مختلفة عن كلمة المرور الحالية.',
+  },
+  'auth/password_same_as_old': {
+    en: 'Your new password must be different from your previous password.',
+    fr: 'Votre nouveau mot de passe doit être différent de votre ancien mot de passe.',
+    ar: 'يجب أن تكون كلمة المرور الجديدة مختلفة عن كلمة المرور السابقة.',
+  },
 
   'success/logged_out': {
     fr: 'Déconnecté avec succès.',
@@ -179,6 +199,11 @@ const messages = {
     en: 'Profile updated successfully.',
     fr: 'Profil mis à jour avec succès.',
     ar: 'تم تحديث الملف الشخصي بنجاح.',
+  },
+  'success/password_changed': {
+    en: 'Password changed successfully.',
+    fr: 'Mot de passe modifié avec succès.',
+    ar: 'تم تغيير كلمة المرور بنجاح.',
   },
 
   'validation/password_length_invalid': {
@@ -261,9 +286,9 @@ const messages = {
     ar: 'يرجى إدخال سنة بكالوريا صالحة.',
   },
   'validation/invalid_grade': {
-    en: 'Grade must be between 0 and 100.',
-    fr: 'La note doit être comprise entre 0 et 100.',
-    ar: 'يجب أن تكون النقطة بين 0 و 100.',
+    en: 'Grade must be between 0 and 20.',
+    fr: 'La note doit être comprise entre 0 et 20.',
+    ar: 'يجب أن تكون النقطة بين 0 و 20.',
   },
   'validation/invalid_uuid_array': {
     en: 'Invalid format. Please provide an array of valid UUIDs.',
@@ -281,14 +306,29 @@ const messages = {
     ar: 'لا توجد حقول للتحديث.',
   },
   'validation/invalid_number': {
-    fr: 'Le nombre doit être compris entre 0 et 999.',
-    en: 'The number must be between 0 and 999.',
-    ar: 'يجب أن يكون الرقم بين 0 و 999.',
+    fr: 'Le nombre doit être compris entre 0 et 100.',
+    en: 'The number must be between 0 and 100.',
+    ar: 'يجب أن يكون الرقم بين 0 و 100.',
   },
   'validation/invalid_diploma_field': {
     fr: 'Le champ du diplôme est invalide.',
     en: 'Invalid diploma field.',
     ar: 'حقل الشهادة غير صالح.',
+  },
+  'validation/invalid_url': {
+    fr: 'URL invalide.',
+    en: 'Invalid URL.',
+    ar: 'رابط غير صالح.',
+  },
+  'validation/invalid_boolean': {
+    fr: 'Veuillez fournir une valeur booléenne (true/false).',
+    en: 'Please provide a boolean value (true/false).',
+    ar: 'يرجى تقديم قيمة منطقية (صحيح/خطأ).',
+  },
+  'validation/image_upload_failed': {
+    fr: "Échec de l'upload de l'image.",
+    en: "Image upload failed.",
+    ar: "فشل تحميل الصورة.",
   },
 
   'internal_error': { 

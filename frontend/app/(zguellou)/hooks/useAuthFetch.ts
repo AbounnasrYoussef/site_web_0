@@ -3,23 +3,27 @@
 import { useCallback } from 'react';
 import { useAuth } from '@/app/(zguellou)/providers/AuthProvider';
 
-const TOKEN_KEY = 'kharita_access_token';
-
 export function useAuthFetch() {
-  const { refreshToken, clearAuth } = useAuth();
+  const { getAccessToken, refreshToken, clearAuth } = useAuth();
 
   const authFetch = useCallback(
     async (input: string, init: RequestInit = {}, isRetry = false): Promise<Response> => {
-      const token = typeof window !== 'undefined' ? sessionStorage.getItem(TOKEN_KEY) : null;
+      // Read the token at call time so the retry after a refresh uses the new one
+      const token = getAccessToken();
+
+      const headers: Record<string, string> = {
+        ...(init.headers as Record<string, string> || {}),
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      };
+
+      if (!(init.body instanceof FormData)) {
+        headers['Content-Type'] = 'application/json';
+      }
 
       const res = await fetch(input, {
         ...init,
         credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(init.headers || {}),
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
+        headers,
       });
 
       if (res.status === 401 && !isRetry) {
@@ -29,12 +33,12 @@ export function useAuthFetch() {
           await clearAuth();
           throw new Error('Session expired');
         }
-        return authFetch(input, init, true); // retry once with the fresh token
+        return authFetch(input, init, true);
       }
 
       return res;
     },
-    [refreshToken, clearAuth]
+    [getAccessToken, refreshToken, clearAuth]
   );
 
   return authFetch;

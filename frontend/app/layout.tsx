@@ -4,6 +4,8 @@ import { getLocale, getMessages } from 'next-intl/server';
 import { Inter, Cairo } from "next/font/google";
 import "./globals.css";
 import Providers from "./(zguellou)/providers";
+import Navbar from "@/components/navbar";
+import Footer from "@/components/footer";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 const cairo = Cairo({ subsets: ["arabic", "latin"], variable: "--font-cairo" });
@@ -44,6 +46,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     <html lang={locale} dir={dir} className={`${inter.variable} ${cairo.variable} h-full antialiased`}>
       <body className={`${locale === 'ar' ? cairo.className : inter.className} min-h-full flex flex-col`}>
         <Providers locale={locale} messages={messages}>
+          <Navbar />
           {children}
         </Providers>
       </body>

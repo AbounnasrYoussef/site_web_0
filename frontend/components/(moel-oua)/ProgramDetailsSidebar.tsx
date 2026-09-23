@@ -189,7 +189,7 @@ export default function ProgramDetailsSidebar({ program, isOpen, onClose }: Prop
           )}
         </div>
 
-        <div className="p-3 border-t-2 border-black bg-[#f4f1ea] flex-shrink-0">
+        <div className="p-3 border-t-2 border-black bg-[var(--color-bg)] flex-shrink-0">
           <button
             onClick={onClose}
             className="w-full py-2.5 rounded-xl border-2 border-black bg-white text-black font-black text-xs uppercase tracking-wider shadow-[3px_3px_0_#000] hover:bg-black hover:text-white hover:-translate-y-0.5 hover:shadow-[4px_4px_0_#000] active:translate-y-0 active:shadow-none transition-all cursor-pointer"

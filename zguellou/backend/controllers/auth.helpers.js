@@ -132,7 +132,7 @@ async function getUserInterestedCategories(userId, locale) {
   const result = await pool.query(
     `SELECT 
        c.id AS category_id,
-       COALESCE(ct.name, c.name) AS category_name,
+       ct.name AS category_name,
        c.name AS category_slug
      FROM user_interested_categories uic
      JOIN categories c ON c.id = uic.category_id

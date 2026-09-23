@@ -237,7 +237,7 @@ describe('2FA Flow', () => {
       const changeToken = loginAgain.body.pending_token;
       const newPassword = 'NewSecurePass123!';
       const changeRes = await request(app)
-        .post('/api/auth/change-password')
+        .post('/api/auth/change-force-password')
         .send({ pending_token: changeToken, new_password: newPassword });
 
       expect(changeRes.status).toBe(200);
