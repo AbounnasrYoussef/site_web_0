@@ -130,7 +130,10 @@ export default function Verify2FAForm() {
       sessionStorage.removeItem('pending_2fa_token');
       sessionStorage.removeItem('otp_expires_at');
       sessionStorage.removeItem('otp_email');
-      router.push('/profile?verified=true');
+      if (data.user.role == 'ADMIN' || data.user.role == 'SUPERADMIN')
+        router.push('/dashboard');
+      else
+        router.push('/profile');
     },
     onError: (error: any) => {
       if (error.type === 'session_expired') {

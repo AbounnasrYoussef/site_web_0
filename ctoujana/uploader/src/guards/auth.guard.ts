@@ -7,30 +7,12 @@ export class AuthGuard implements CanActivate {
 
     constructor(private env: ConfigService) {}
 
-    async canActivate(context: ExecutionContext): Promise<boolean> {
+    async canActivate(context: ExecutionContext) {
         const req = context.switchToHttp().getRequest<Request>()
-        const locale = req.query?.lang || 'en'
-        const token = req.headers.authorization?.split(' ')[1]
-        if (!token)
-            throw new UnauthorizedException('No token provided')
-        const auth_backend = this.env.get<string>('AUTH_API_URL')!
-        console.log(auth_backend)
-        try
-        {
-            const res = await fetch(`${auth_backend}/api/auth/validate?locale=${locale}`, {
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                },
-            })
-            const data = await res.json()
-            if (!data.valid)
-                throw new UnauthorizedException(data.error)
-            req.user = data.user
-            return true
-        }
-        catch (error: any)
-        {
-            throw new UnauthorizedException(error?.message || 'Invalid or expired token')
-        }
+        const uploader_key = this.env.get<string>('PRIVATE_UPLOADER_KEY')!
+        const header = req.headers['x-uploader-key']
+        if (!header || header !== uploader_key)
+            throw new UnauthorizedException('Not authorized')
+        return true
     }
 }

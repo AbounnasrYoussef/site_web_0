@@ -1,102 +1,110 @@
 from collections import defaultdict
+from datetime import date
 from models import Program, ProgramRequirement, Diploma
 
-MAX_PATH_DEPTH = 8
+MAX_PATH_LENGTH = 8
+MAX_PATHS = 300
 
 
-class PathFinder:
+def find_paths(category_id, diploma_id, student):
+    ranks = {diploma.id: diploma.rank for diploma in Diploma.select()}
+    if diploma_id not in ranks:
+        return []
+    user_rank = ranks[diploma_id]
 
-    def find_paths(self, category_id, starting_diploma_id):
-        programs = self.get_approved_programs()
-        programs_awarding_diploma = self.map_programs_by_output_diploma(programs)
+    programs = list(Program.select().where(Program.is_approved == True))
+    feeders = defaultdict(list)
+    for program in programs:
+        feeders[program.output_diploma_id].append(program)
 
-        starting_rank = self.get_starting_rank(starting_diploma_id)
-        target_programs = self.find_target_programs(programs, category_id, starting_rank)
+    requirements = defaultdict(list)
+    for requirement in ProgramRequirement.select():
+        requirements[requirement.program_id].append(requirement)
 
-        if not target_programs:
-            return self.error("Cant Find a Program On The Selected Category")
+    def is_met(requirement):
+        return requirement.required_diploma_id is None or ranks[requirement.required_diploma_id] <= user_rank
 
-        all_paths = []
-        for target in target_programs:
-            all_paths.extend(self.trace_back(
-                target,
-                starting_rank,
-                [target],
-                {target.id},
-                programs_awarding_diploma,
-            ))
-        return all_paths
-
-    def get_starting_rank(self, starting_diploma_id):
-        if not starting_diploma_id:
-            return None
-        starting_diploma = Diploma.get_or_none(Diploma.id == str(starting_diploma_id))
-        return starting_diploma.rank if starting_diploma else None
-
-    def get_approved_programs(self):
-        return list(
-            Program.select().where(Program.is_approved == True)
-            .prefetch(ProgramRequirement)
-        )
-
-    def map_programs_by_output_diploma(self, programs):
-        by_output_diploma = defaultdict(list)
-        for program in programs:
-            if program.output_diploma:
-                by_output_diploma[str(program.output_diploma.id)].append(program)
-        return by_output_diploma
-
-    def find_target_programs(self, programs, category_id, starting_rank):
-        matches = []
-        for program in programs:
-            if not program.category or str(program.category.id) != str(category_id):
-                continue
-            if self.already_surpassed(program, starting_rank):
-                continue
-            matches.append(program)
-        return matches
-
-    def already_surpassed(self, program, starting_rank):
-        if starting_rank is None or program.output_diploma is None:
-            return False
-        return program.output_diploma.rank <= starting_rank
-
-    def error(self, text=None):
-        return {"error": text or "Path Error"}
-
-    def requirement_already_met(self, required_diploma, starting_rank):
-        if required_diploma is None:
-            return True
-        if starting_rank is None:
-            return False
-        return required_diploma.rank <= starting_rank
-
-    def trace_back(self, program, starting_rank, path_so_far, visited, programs_awarding_diploma):
-        if len(path_so_far) > MAX_PATH_DEPTH:
+    def paths_to(program, path):
+        if len(path) > MAX_PATH_LENGTH:
             return []
+        if not requirements[program.id]:
+            return [path]
 
-        requirements = list(program.admission_requirements)
-        if not requirements:
-            return [list(path_so_far)]
-
-        found_paths = []
-        for requirement in requirements:
-            required_diploma = requirement.required_diploma
-
-            if self.requirement_already_met(required_diploma, starting_rank):
-                found_paths.append(list(path_so_far))
+        paths = []
+        for requirement in requirements[program.id]:
+            if is_met(requirement):
+                paths.append(path)
                 continue
+            for feeder in feeders[requirement.required_diploma_id]:
+                if feeder not in path:
+                    paths += paths_to(feeder, [feeder] + path)
+        return paths
 
-            required_diploma_id = str(required_diploma.id)
-            for feeder_program in programs_awarding_diploma.get(required_diploma_id, []):
-                if feeder_program.id in visited:
-                    continue
-                found_paths.extend(self.trace_back(
-                    feeder_program,
-                    starting_rank,
-                    [feeder_program] + path_so_far,
-                    visited | {feeder_program.id},
-                    programs_awarding_diploma,
-                ))
+    found = {}
+    for program in programs:
+        if program.category_id != category_id:
+            continue
+        if ranks.get(program.output_diploma_id, user_rank + 1) <= user_rank:
+            continue
+        for path in paths_to(program, [program]):
+            found[tuple(step.id for step in path)] = path
+        if len(found) >= MAX_PATHS:
+            break
 
-        return found_paths
+    results = [evaluate(path, requirements, is_met, student) for path in found.values()]
+    results.sort(key=lambda result: (not result["eligible"], result["total_years"], result["concours_count"]))
+    return results[:MAX_PATHS]
+
+
+def evaluate(path, requirements, is_met, student):
+    """Checks every step of a path against what we know about the student.
+
+    A check is {"type", ..., "ok"} where ok is True (passes), False (blocks the
+    student) or None (can't be decided: missing data, or a grade they don't have yet).
+    """
+    current_age = date.today().year - student["birth_year"] if student["birth_year"] else None
+    years_before = 0
+    steps = []
+    for i, program in enumerate(path):
+        if i == 0:
+            entry = [r for r in requirements[program.id] if is_met(r)]
+        else:
+            entry = [r for r in requirements[program.id] if r.required_diploma_id == path[i - 1].output_diploma_id]
+        checks = grade_checks(entry, student, first_step=i == 0)
+        if program.max_age is not None and current_age is not None:
+            age = current_age + years_before
+            checks.append({"type": "age", "max": program.max_age, "actual": age, "ok": age <= program.max_age})
+        if i == 0:
+            checks += graduation_checks(entry, student)
+        steps.append(checks)
+        years_before += program.years_of_study
+
+    return {
+        "programs": path,
+        "checks": steps,
+        "eligible": not any(check["ok"] is False for checks in steps for check in checks),
+        "total_years": years_before,
+        "concours_count": sum(program.has_concours for program in path),
+    }
+
+
+def grade_checks(entry, student, first_step):
+    grades = [r.min_grade for r in entry]
+    if not grades or None in grades:
+        return []
+    required = float(min(grades))
+    if not first_step:
+        return [{"type": "future_grade", "required": required, "ok": None}]
+    grade = student["grade"]
+    return [{"type": "grade", "required": required, "actual": grade, "ok": None if grade is None else grade >= required}]
+
+
+def graduation_checks(entry, student):
+    limits = [r.max_years_since_graduation for r in entry]
+    if not limits or None in limits:
+        return []
+    allowed = max(limits)
+    if student["graduation_year"] is None:
+        return [{"type": "graduation", "max": allowed, "actual": None, "ok": None}]
+    since = date.today().year - student["graduation_year"]
+    return [{"type": "graduation", "max": allowed, "actual": since, "ok": since <= allowed}]

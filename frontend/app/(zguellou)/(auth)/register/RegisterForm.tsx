@@ -39,7 +39,6 @@ export default function RegisterForm() {
     }
   }, [searchParams]);
 
-  const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
   const { mutate, isPending } = useMutation({
     mutationFn: async (data: { email: string; password: string }) => {
@@ -49,7 +48,6 @@ export default function RegisterForm() {
         credentials: 'include',
         body: JSON.stringify(data),
       });
-      await sleep(2000);
 
       const json = await res.json();
       if (!res.ok) {
@@ -145,6 +143,7 @@ export default function RegisterForm() {
         label={t('register.email.label')}
         placeholder={t('register.email.placeholder')}
         dir="ltr"
+        type="email"
         value={email}
         onChange={handleEmailChange}
         error={fieldErrors.email}

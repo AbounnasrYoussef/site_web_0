@@ -1,235 +1,240 @@
 "use client";
-import { useState, useMemo, useCallback, useEffect } from "react";
-import ReactFlow, { Controls, Node, Edge, MarkerType } from "reactflow";
+import { useState, useMemo } from "react";
+import ReactFlow, { Controls, MarkerType } from "reactflow";
 import "reactflow/dist/style.css";
+import { useLocale, useTranslations } from "next-intl";
+import Dropdown, { DropdownOption } from "@/components/dropdown";
 import ProgramDetailsSidebar from "@/components/(moel-oua)/ProgramDetailsSidebar";
-import { PathGraphProps, JobTitleItem } from "./types";
+import { Direction, JobTitle, Option, PathResult } from "./types";
 import { nodeTypes } from "./graph-nodes";
-import { PATH_COLORS, AutoCenter } from "./graph-layout";
+import { PATH_COLORS, START_ID, AutoCenter, buildGraph, pathEdgeIds } from "./graph-layout";
+
+const EDGE_COLOR = "#94a3b8";
+const DIMMED_EDGE_COLOR = "#e2e8f0";
+
+interface PathGraphProps {
+  paths: PathResult[];
+  direction: Direction;
+  startLabel: string;
+  loading: boolean;
+  error: string | null;
+  categories: Option[];
+  diplomas: Option[];
+  categoryId: string;
+  diplomaId: string;
+  canChangeDiploma: boolean;
+  onCategoryChange: (id: string) => void;
+  onDiplomaChange: (id: string) => void;
+  onReset: () => void;
+}
+
+const overlayClass = "absolute inset-0 flex items-center justify-center bg-white/90 backdrop-blur-md z-30 p-4";
+const messageClass = "border-2 border-black text-black font-bold px-6 py-4 rounded-3xl shadow-[6px_6px_0px_#000] text-sm text-center";
+
+const sameItems = (a: number[], b: number[]) => a.length === b.length && a.every((item, i) => item === b[i]);
 
 export default function PathGraph({
-  graphData, loading, error, categories, diplomas, jobTitles,
-  categories_id, user_diploma_id, selectedJobId, selectedProgram,
-  onCategoryChange, onDiplomaChange, onJobChange, onCloseSidebar,
+  paths: allPaths, direction, startLabel, loading, error, categories, diplomas,
+  categoryId, diplomaId, canChangeDiploma, onCategoryChange, onDiplomaChange, onReset,
 }: PathGraphProps) {
-  const [activePathIndices, setActivePathIndices] = useState<Set<number>>(new Set());
+  const t = useTranslations("path");
+  const dir = useLocale() === "ar" ? "rtl" : "ltr";
+  const [activePaths, setActivePaths] = useState<number[]>([]);
+  const [jobId, setJobId] = useState("");
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [onlyEligible, setOnlyEligible] = useState(false);
 
-  useEffect(() => {
-    if (!graphData || !selectedJobId) {
-      setActivePathIndices(new Set());
-      return;
-    }
-    const matching = new Set<number>();
-    graphData.paths.forEach((pathNodeIds, pi) => {
-      const hasJob = pathNodeIds.some((nodeId) => {
-        const node = graphData.baseNodes.find((n) => n.id === nodeId);
-        return node?.data?.job_titles?.some((j: JobTitleItem) => j.id === selectedJobId);
-      });
-      if (hasJob) matching.add(pi);
-    });
-    setActivePathIndices(matching);
-  }, [selectedJobId, graphData]);
+  const lastProgram = ({ programs }: PathResult) => programs[programs.length - 1];
+  const eligibleCount = allPaths.filter((path) => path.eligible).length;
+  const canFilterEligible = eligibleCount > 0 && eligibleCount < allPaths.length;
+
+  const jobs = useMemo(() => {
+    const byId = new Map<string, JobTitle>();
+    allPaths.forEach((path) => lastProgram(path).job_titles.forEach((job) => byId.set(job.id, job)));
+    return [...byId.values()];
+  }, [allPaths]);
+
+  const toOptions = (options: Option[]) => options.map((option) => ({ label: option.name, value: option.id }));
+  const diplomaOptions = useMemo(() => toOptions(diplomas), [diplomas]);
+  const categoryOptions = useMemo(() => toOptions(categories), [categories]);
+  const jobOptions = useMemo(
+    () => [{ label: t("allJobs", { count: jobs.length }), value: "" }, ...jobs.map((job) => ({ label: job.title, value: job.id }))],
+    [jobs, t]
+  );
+
+  const visiblePaths = useMemo(
+    () =>
+      allPaths.filter(
+        (path) =>
+          (!jobId || lastProgram(path).job_titles.some((job) => job.id === jobId)) &&
+          (!onlyEligible || !canFilterEligible || path.eligible)
+      ),
+    [allPaths, jobId, onlyEligible, canFilterEligible]
+  );
+
+  const graph = useMemo(
+    () => (visiblePaths.length > 0 ? buildGraph(visiblePaths, direction, startLabel) : null),
+    [visiblePaths, direction, startLabel]
+  );
+  const summary = activePaths.length === 1 ? visiblePaths[activePaths[0]] : null;
+
+  const paths = graph?.paths ?? [];
+  const selected = graph?.nodes.find((node) => node.id === selectedId)?.data;
+
+  const pathsWhere = (matches: (path: string[]) => boolean) =>
+    paths.flatMap((path, index) => (matches(path) ? [index] : []));
+
+  const togglePaths = (indices: number[]) =>
+    setActivePaths((current) => (sameItems(current, indices) ? [] : indices));
+
+  const selectJob = (id: string) => {
+    setJobId(id);
+    setActivePaths([]);
+  };
+
+  const toggleEligible = () => {
+    setOnlyEligible((current) => !current);
+    setActivePaths([]);
+  };
 
   const { nodes, edges } = useMemo(() => {
-    if (!graphData) return { nodes: [], edges: [] };
-    const { baseNodes, baseEdges, paths } = graphData;
+    if (!graph) return { nodes: [], edges: [] };
 
-    if (activePathIndices.size === 0) {
-      return {
-        nodes: baseNodes.map((n) => ({ ...n, data: { ...n.data, highlighted: false, dimmed: false } })),
-        edges: baseEdges.map((e) => ({ ...e, style: { stroke: "#94a3b8", strokeWidth: 1.5, opacity: 0.6 }, animated: false, markerEnd: { type: MarkerType.Arrow, color: "#94a3b8" } })),
-      };
-    }
-
-    const activeNodeIds = new Set<string>(["start-root"]);
-    const activeEdgeIds = new Set<string>();
-
-    activePathIndices.forEach((pi) => {
-      const path = paths[pi];
-      if (!path) return;
-      path.forEach((nodeId, i) => {
-        activeNodeIds.add(nodeId);
-        const prev = i === 0 ? "start-root" : path[i - 1];
-        activeEdgeIds.add(`${prev}-->${nodeId}`);
-      });
-    });
-
-    const pathColorsForNodes: Record<string, string> = {};
-    activePathIndices.forEach((pi) => {
-      const color = PATH_COLORS[pi % PATH_COLORS.length];
-      const path = paths[pi];
-      if (!path) return;
-      path.forEach((nodeId) => { pathColorsForNodes[nodeId] = color; });
+    const highlighting = activePaths.length > 0;
+    const nodeColors = new Map<string, string>();
+    const edgeColors = new Map<string, string>();
+    activePaths.forEach((index) => {
+      const color = PATH_COLORS[index % PATH_COLORS.length];
+      graph.paths[index].forEach((id) => nodeColors.set(id, color));
+      pathEdgeIds(graph.paths[index]).forEach((id) => edgeColors.set(id, color));
     });
 
     return {
-      nodes: baseNodes.map((n) => ({
-        ...n,
-        data: {
-          ...n.data,
-          highlighted: activeNodeIds.has(n.id),
-          dimmed: !activeNodeIds.has(n.id),
-          pathColor: pathColorsForNodes[n.id] || "#6366f1",
-        },
-      })),
-      edges: baseEdges.map((e) => {
-        const isActive = activeEdgeIds.has(e.id);
-        const pathIdx = Array.from(activePathIndices).find((pi) => {
-          const path = paths[pi];
-          if (!path) return false;
-          return path.some((nodeId, i) => {
-            const prev = i === 0 ? "start-root" : path[i - 1];
-            return `${prev}-->${nodeId}` === e.id;
-          });
-        });
-        const color = pathIdx !== undefined ? PATH_COLORS[pathIdx % PATH_COLORS.length] : "#6366f1";
+      nodes: graph.nodes.map((node) => {
+        const highlighted = highlighting && (node.id === START_ID || nodeColors.has(node.id));
         return {
-          ...e,
-          style: isActive ? { stroke: color, strokeWidth: 3.5, opacity: 1 } : { stroke: "#e2e8f0", strokeWidth: 1, opacity: 0.2 },
-          animated: isActive,
-          markerEnd: { type: MarkerType.ArrowClosed, color: isActive ? color : "#e2e8f0" },
+          ...node,
+          data: {
+            ...node.data,
+            highlighted,
+            dimmed: highlighting && !highlighted,
+            pathColor: nodeColors.get(node.id),
+            onShowDetails: setSelectedId,
+          },
+        };
+      }),
+      edges: graph.edges.map((edge) => {
+        const activeColor = edgeColors.get(edge.id);
+        const color = activeColor ?? (highlighting ? DIMMED_EDGE_COLOR : EDGE_COLOR);
+        return {
+          ...edge,
+          animated: !!activeColor,
+          style: { stroke: color, strokeWidth: activeColor ? 3.5 : 1.5 },
+          markerEnd: { type: MarkerType.ArrowClosed, color },
         };
       }),
     };
-  }, [graphData, activePathIndices]);
-
-  const onNodeClick = useCallback((_: unknown, node: Node) => {
-    if (!graphData) return;
-    const matchingPaths = new Set<number>();
-    graphData.paths.forEach((path, pi) => {
-      if (node.id === "start-root" || path.includes(node.id)) matchingPaths.add(pi);
-    });
-    if (matchingPaths.size === 0) return;
-    setActivePathIndices((prev) => {
-      const same = prev.size === matchingPaths.size && [...matchingPaths].every((i) => prev.has(i));
-      return same ? new Set() : matchingPaths;
-    });
-  }, [graphData]);
-
-  const onEdgeClick = useCallback((_: unknown, edge: Edge) => {
-    if (!graphData) return;
-    const matchingPaths = new Set<number>();
-    graphData.paths.forEach((path, pi) => {
-      path.forEach((nodeId, i) => {
-        const prev = i === 0 ? "start-root" : path[i - 1];
-        if (`${prev}-->${nodeId}` === edge.id) matchingPaths.add(pi);
-      });
-    });
-    if (matchingPaths.size === 0) return;
-    setActivePathIndices((prev) => {
-      const same = prev.size === matchingPaths.size && [...matchingPaths].every((i) => prev.has(i));
-      return same ? new Set() : matchingPaths;
-    });
-  }, [graphData]);
-
-  const onPaneClick = useCallback(() => setActivePathIndices(new Set()), []);
-
-  const hasFilters = !!(diplomas?.length || categories?.length);
-  const hasJobFilter = !loading && !error && graphData && jobTitles && jobTitles.length > 0;
+  }, [graph, activePaths]);
 
   return (
-    <div className="w-full flex flex-col bg-white border-2 border-black rounded-3xl shadow-[6px_6px_0px_#000] overflow-hidden select-none">
-      {(hasFilters || hasJobFilter) && (
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 px-3 pt-3 pb-2 border-b-2 border-black bg-white/95 z-20 flex-shrink-0">
-          <div className="flex flex-wrap items-center gap-2">
-            {diplomas && diplomas.length > 0 && (
-              <div className="flex items-center gap-1.5">
-                <span className="text-[9px] font-mono uppercase font-black text-slate-700 shrink-0">Diploma:</span>
-                <select
-                  value={user_diploma_id}
-                  onChange={(e) => onDiplomaChange?.(e.target.value)}
-                  className="border-2 border-black bg-amber-200 text-black font-bold text-xs px-2 py-1 rounded-xl outline-none cursor-pointer max-w-[160px] truncate hover:bg-amber-300 transition-colors"
-                >
-                  {diplomas.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
-                </select>
-              </div>
-            )}
-            {categories && categories.length > 0 && (
-              <div className="flex items-center gap-1.5">
-                <span className="text-[9px] font-mono uppercase font-black text-slate-700 shrink-0">Category:</span>
-                <select
-                  value={categories_id}
-                  onChange={(e) => onCategoryChange?.(e.target.value)}
-                  className="border-2 border-black bg-[#9bf6ff] text-black font-bold text-xs px-2 py-1 rounded-xl outline-none cursor-pointer max-w-[160px] truncate hover:bg-cyan-200 transition-colors"
-                >
-                  {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-                </select>
-              </div>
-            )}
-          </div>
-
-          {hasJobFilter && (
-            <div className="flex items-center gap-1.5 animate-pop-in">
-              <span className="text-[9px] font-mono uppercase font-black text-slate-700 shrink-0">Target Job:</span>
-              <select
-                value={selectedJobId}
-                onChange={(e) => onJobChange?.(e.target.value)}
-                className="border-2 border-black bg-emerald-200 text-black font-bold text-xs px-2 py-1 rounded-xl outline-none cursor-pointer max-w-[180px] truncate hover:bg-emerald-300 transition-colors"
-              >
-                <option value="">All Jobs ({jobTitles!.length})</option>
-                {jobTitles!.map((j) => <option key={j.id} value={j.id}>{j.title}</option>)}
-              </select>
-            </div>
+    <div dir={dir} className="w-full flex-1 flex flex-col overflow-hidden select-none">
+      <div className="squared-bg relative flex-1 min-h-[380px] overflow-hidden">
+        <div className="absolute top-3 inset-x-3 z-20 flex flex-row items-start gap-2 pointer-events-none">
+          {canChangeDiploma && (
+            <Filter label={t("currentDiploma")} value={diplomaId} onChange={onDiplomaChange} options={diplomaOptions} />
+          )}
+          <Filter label={t("category")} value={categoryId} onChange={onCategoryChange} options={categoryOptions} />
+          {jobs.length > 0 && (
+            <Filter label={t("targetJob")} value={jobId} onChange={selectJob} options={jobOptions} />
+          )}
+          {canFilterEligible && (
+            <button
+              type="button"
+              aria-pressed={onlyEligible}
+              onClick={toggleEligible}
+              className={`pointer-events-auto shrink-0 self-stretch px-3 rounded-xl border-2 border-black shadow-[3px_3px_0px_#000] text-[11px] font-black uppercase cursor-pointer active:translate-y-0.5 active:shadow-none transition-all ${
+                onlyEligible ? "bg-[#ccee00] text-black" : "bg-white text-black"
+              }`}
+            >
+              {onlyEligible ? "✓ " : ""}
+              {t("onlyEligible", { count: eligibleCount })}
+            </button>
           )}
         </div>
-      )}
 
-      <div className="squared-bg relative h-[65vh] sm:h-[80vh] min-h-[380px] overflow-hidden">
-        {activePathIndices.size > 0 && (
-          <div className="absolute bottom-14 left-3 z-20 bg-black/90 backdrop-blur-md text-white text-xs font-mono px-3 py-1.5 rounded-2xl border-2 border-white/20 shadow-[3px_3px_0px_#000] animate-pop-in pointer-events-none">
-            {activePathIndices.size} path{activePathIndices.size > 1 ? "s" : ""} highlighted
+        {activePaths.length > 0 && (
+          <div className="absolute bottom-14 start-3 z-20 bg-black/90 text-white text-xs font-mono px-3 py-1.5 rounded-2xl border-2 border-white/20 pointer-events-none">
+            {summary ? (
+              <>
+                {t("pathSummary", { years: summary.total_years, steps: summary.programs.length, concours: summary.concours_count })}
+                <span className={`ms-2 font-black ${summary.eligible ? "text-[#ccee00]" : "text-red-400"}`}>
+                  {summary.eligible ? t("eligible") : t("notEligible")}
+                </span>
+              </>
+            ) : (
+              t("highlighted", { count: activePaths.length })
+            )}
           </div>
         )}
-
         {loading && (
-          <div className="absolute inset-0 flex items-center justify-center bg-white/90 backdrop-blur-md z-30">
-            <div className="border-2 border-black bg-amber-300 text-black px-6 py-4 rounded-3xl shadow-[6px_6px_0px_#000] animate-bounce flex items-center gap-3 font-black text-sm">
-              <span className="w-3 h-3 rounded-full bg-black animate-ping" />
-              Calculating Pathways...
-            </div>
+          <div className={overlayClass}>
+            <div className={`${messageClass} bg-amber-300 animate-pulse`}>{t("loading")}</div>
           </div>
         )}
         {error && (
-          <div className="absolute inset-0 flex items-center justify-center bg-white/90 backdrop-blur-md z-30 p-4">
-            <div className="border-2 border-black bg-red-400 text-black font-bold px-6 py-4 rounded-3xl shadow-[6px_6px_0px_#000] text-sm text-center animate-pop-in">
-              {error}
+          <div className={overlayClass}>
+            <div className={`${messageClass} bg-red-400 flex flex-col items-center gap-3`}>
+              {t(error)}
+              <button
+                onClick={onReset}
+                className="px-4 py-2 rounded-xl border-2 border-black bg-white text-black font-black text-xs uppercase shadow-[3px_3px_0px_#000] cursor-pointer active:translate-y-0.5 active:shadow-none transition-all"
+              >
+                {t("startOver")}
+              </button>
             </div>
           </div>
         )}
 
-        <ReactFlow
-          nodes={nodes}
-          edges={edges}
-          nodeTypes={nodeTypes}
-          onNodeClick={onNodeClick}
-          onEdgeClick={onEdgeClick}
-          onPaneClick={onPaneClick}
-          fitView
-          fitViewOptions={{ padding: 0.2 }}
-          minZoom={0.1}
-          maxZoom={2}
-          panOnScroll={false}
-          panOnDrag={[0, 1, 2]}
-          zoomOnPinch
-          zoomOnScroll
-          preventScrolling
-          proOptions={{ hideAttribution: true }}
-          defaultEdgeOptions={{
-            type: "default",
-            style: { stroke: "#94a3b8", strokeWidth: 1.5 },
-            markerEnd: { type: MarkerType.Arrow, color: "#94a3b8" },
-          }}
-        >
-          <AutoCenter graphData={graphData} />
-          <Controls position="bottom-right" />
-        </ReactFlow>
+        <div dir="ltr" className="absolute inset-x-0 bottom-0 top-20">
+          <ReactFlow
+            nodes={nodes}
+            edges={edges}
+            nodeTypes={nodeTypes}
+            onNodeClick={(_, node) => togglePaths(pathsWhere((path) => node.id === START_ID || path.includes(node.id)))}
+            onEdgeClick={(_, edge) => togglePaths(pathsWhere((path) => pathEdgeIds(path).includes(edge.id)))}
+            onPaneClick={() => setActivePaths([])}
+            minZoom={0.1}
+            maxZoom={2}
+            proOptions={{ hideAttribution: true }}
+          >
+            <AutoCenter graph={graph} />
+            <Controls position="bottom-right" fitViewOptions={{ nodes: [{ id: START_ID }], maxZoom: 1, duration: 400 }} />
+          </ReactFlow>
+        </div>
 
         <ProgramDetailsSidebar
-          program={selectedProgram}
-          isOpen={!!selectedProgram}
-          onClose={onCloseSidebar}
+          program={selected?.program ?? null}
+          checks={selected?.checks ?? []}
+          color1={selected?.color1}
+          color2={selected?.color2}
+          onClose={() => setSelectedId(null)}
         />
       </div>
+    </div>
+  );
+}
+
+interface FilterProps {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  options: DropdownOption[];
+}
+
+function Filter({ label, value, onChange, options }: FilterProps) {
+  return (
+    <div className="pointer-events-auto flex-1 min-w-0 sm:flex-none sm:w-56 bg-white border-2 border-black rounded-xl shadow-[3px_3px_0px_#000] px-2 py-1.5">
+      <Dropdown label={label} value={value} onChange={onChange} options={options} placeholder={label} />
     </div>
   );
 }

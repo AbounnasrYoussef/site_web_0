@@ -191,7 +191,7 @@ async function completeAuthentication({ user, deviceId, isNewDevice, req, res, r
   // No 2FA required, send new device alert
   if (isNewDevice) {
     const revokeToken = generateRevokeToken(user.id, deviceId);
-    const location = await getLocationFromIP(req.ip);
+    const location = await getLocationFromIP(req.ip, locale);
     const ipAddress = req.ip || req.headers['x-forwarded-for'] || 'Unknown IP';
 
     await sendNewDeviceAlertEmail({
@@ -1284,7 +1284,9 @@ async function uploadProfilePictureFromGoogle(googlePicUrl, locale) {
   if (!googlePicUrl)
       return null;
   try {
-    const response = await fetch(googlePicUrl);
+    const response = await fetch(googlePicUrl, {
+      signal: AbortSignal.timeout(3000),
+    });
     if (!response.ok)
       throw new Error(`Download failed: ${response.status}`);
 
@@ -1305,10 +1307,16 @@ async function uploadProfilePictureFromGoogle(googlePicUrl, locale) {
     formData.append('upload_dir', 'auth/profile');
 
     const uploaderUrl = process.env.PRIVATE_UPLOADER_API_URL;
+    const uploaderKey = process.env.PRIVATE_UPLOADER_KEY;
     const uploadRes = await fetch(`${uploaderUrl}/uploader?lang=${locale}`, {
       method: 'POST',
-      body: formData
+      headers: {
+        'x-uploader-key': `${uploaderKey}`,
+      },
+      body: formData,
+      signal: AbortSignal.timeout(3000),
     });
+
 
     if (!uploadRes.ok) {
       const errData = await uploadRes.json().catch(() => ({}));
@@ -1328,6 +1336,7 @@ async function googleCallback(req, res, next) {
     const { code, state } = req.query;
     const expectedState = req.cookies?.google_oauth_state;
     res.clearCookie('google_oauth_state');
+    console.log("req: ", req.headers);
 
     // CSRF validation kayna fl RFC 
     if (!code || !state || !expectedState || state !== expectedState) {
@@ -1483,33 +1492,20 @@ async function googleCallback(req, res, next) {
 }
 
 ///////////////////////// UPDATE PROFILE
-async function replaceUserInterests(userId, ids, tableName, idColumn) {
-  if (!Array.isArray(ids)) 
-    return;
-  await pool.query('BEGIN');
-  try {
-    await pool.query(`DELETE FROM ${tableName} WHERE user_id = $1`, [userId]);
-    if (ids.length > 0) {
-      const placeholders = ids.map((_, i) => `($1, $${i + 2})`).join(', ');
-      await pool.query(
-        `INSERT INTO ${tableName} (user_id, ${idColumn}) VALUES ${placeholders}`,
-        [userId, ...ids]
-      );
-    }
-    await pool.query('COMMIT');
-  } catch (err) {
-    await pool.query('ROLLBACK');
-    throw err;
-  }
-}
 
 async function deleteOldProfileImage(imageUrl, locale = 'en') {
   if (!imageUrl) return;
   try {
-    const response = await fetch(`${process.env.PRIVATE_UPLOADER_API_URL}/uploader?lang=${locale}`, {
+    const uploaderUrl = process.env.PRIVATE_UPLOADER_API_URL;
+    const uploaderKey = process.env.PRIVATE_UPLOADER_KEY;
+    const response = await fetch(`${uploaderUrl}/uploader?lang=${locale}`, {
       method: 'DELETE',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 
+        'x-uploader-key': `${uploaderKey}`,
+        'Content-Type': 'application/json'
+      },
       body: JSON.stringify({ image_url: imageUrl }),
+      signal: AbortSignal.timeout(2000),
     });
     if (!response.ok) {
       const errorText = await response.text();
@@ -1528,9 +1524,14 @@ async function uploadFileToUploader(fileBuffer, mimetype, locale) {
   formData.append('upload_dir', 'auth/profile');
 
   const uploaderUrl = process.env.PRIVATE_UPLOADER_API_URL;
+  const uploaderKey = process.env.PRIVATE_UPLOADER_KEY;
   const response = await fetch(`${uploaderUrl}/uploader?lang=${locale}`, {
     method: 'POST',
+    headers: {
+      'x-uploader-key': `${uploaderKey}`,
+    },
     body: formData,
+    signal: AbortSignal.timeout(3000),
   });
 
   if (!response.ok) {
@@ -1628,6 +1629,7 @@ async function updateProfile(req, res, next) {
     }
 
     let uploadedPicUrl = null;
+    let picUploadFailed = false;
     if (req.file) {
       try {
         uploadedPicUrl = await uploadFileToUploader(
@@ -1637,12 +1639,13 @@ async function updateProfile(req, res, next) {
         );
       } catch (uploadErr) {
         logger.error(`Profile picture upload failed: ${uploadErr.message}`);
-        return res.status(400).json({
-          errors: [{
-            field: 'profile_pic',
-            message: getMessage('validation/image_upload_failed', locale),
-          }],
-        });
+        picUploadFailed = true;
+        // return res.status(400).json({
+        //   errors: [{
+        //     field: 'profile_pic',
+        //     message: getMessage('validation/image_upload_failed', locale),
+        //   }],
+        // });
       }
     }
 
@@ -1741,13 +1744,22 @@ async function updateProfile(req, res, next) {
 
     await client.query('COMMIT');
 
-    // ─── Fire‑and‑forget old image deletion ──────────────────
+    // Fire and forget old image deletion
     if (uploadedPicUrl && oldProfilePic && oldProfilePic !== uploadedPicUrl) {
       deleteOldProfileImage(oldProfilePic, locale);
     }
 
     const user = await getFullUserProfile(userId, locale);
-    return res.json({ user, message: getMessage('success/profile_updated', locale) });
+    return res.json({
+      user,
+      message: getMessage('success/profile_updated', locale),
+      ...(picUploadFailed && {
+        warnings: {
+          field: 'profile_pic',
+          message: getMessage('validation/image_upload_failed', locale),
+        },
+      }),
+    });
 
   } catch (error) {
     await client.query('ROLLBACK');
@@ -1816,6 +1828,71 @@ async function changeOwnPassword(req, res, next) {
   }
 }
 
+async function deleteAccount(req, res, next) {
+  const client = await pool.connect();
+  try {
+    const locale = getLocale(req);
+    const userId = req.user.id;
+    const { password, confirmationEmail } = req.body;
+
+    const userResult = await client.query(
+      `SELECT id, email, role, password_hash, auth_provider, profile_pic FROM users WHERE id = $1`,
+      [userId]
+    );
+
+    if (userResult.rows.length === 0) {
+      return res.status(404).json({ error: getMessage('auth/user_not_found', locale) });
+    }
+
+    const user = userResult.rows[0];
+
+    if (user.role === 'ADMIN' || user.role === 'SUPERADMIN') {
+      return res.status(403).json({ error: getMessage('auth/admin_cannot_delete', locale) });
+    }
+
+    if (user.auth_provider === 'LOCAL') {
+      const isValid = await bcrypt.compare(password, user.password_hash);
+      if (!isValid) {
+        return res.status(400).json({ error: getMessage('auth/invalid_password', locale) });
+      }
+    } else {
+      const provided = typeof confirmationEmail === 'string'
+        ? confirmationEmail.toLowerCase().trim()
+        : '';
+      if (provided !== user.email.toLowerCase().trim()) {
+        return res.status(400).json({ error: getMessage('validation/email_confirmation_mismatch', locale) });
+      }
+    }
+
+    // Blacklist BEFORE delete (blacklisted_tokens FKs to users)
+    const accessToken = req.headers.authorization?.split(' ')[1];
+    if (accessToken) {
+      await blacklistAccessToken(accessToken).catch((e) =>
+        logger.error(`Failed to blacklist token on account deletion: ${e.message}`)
+      );
+    }
+
+    // Delete relies on ON DELETE CASCADE for children
+    await client.query('BEGIN');
+    await client.query('DELETE FROM users WHERE id = $1', [userId]);
+    await client.query('COMMIT');
+
+    if (user.profile_pic) {
+      deleteOldProfileImage(user.profile_pic, locale);
+    }
+
+    res.clearCookie('refresh_token');
+    res.clearCookie('device_id');
+
+    return res.json({ message: getMessage('success/account_deleted', locale) });
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => {});
+    next(error);
+  } finally {
+    client.release();
+  }
+}
+
 module.exports = {
   register,
   login,
@@ -1836,4 +1913,5 @@ module.exports = {
   googleCallback,
   updateProfile,
   changeOwnPassword,
+  deleteAccount,
 };

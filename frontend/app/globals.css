@@ -169,3 +169,64 @@ body {
     height: 80px;
   }
 }
+
+.box {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border: 2px solid var(--color-text);
+  padding: 0.5rem 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-decoration: none;
+  box-shadow: 4px 4px 0 0 var(--color-text);
+  transition: all 0.1s ease;
+  cursor: pointer;
+}
+
+.box:hover {
+  transform: translate(2px, 2px);
+  box-shadow: 2px 2px 0 0 var(--color-text);
+}
+
+.box:active {
+  transform: translate(4px, 4px);
+  box-shadow: none;
+}
+
+.box:disabled, 
+.box[aria-disabled="true"] {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+[dir="rtl"] .box,
+.box[dir="rtl"] {
+  flex-direction: row-reverse;
+}
+
+@media (min-width: 640px) {
+  .box {
+    padding: 0.5rem 1.5rem;
+    font-size: 0.875rem;
+  }
+}
+
+
+
+.boxeffect {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border: 2px solid var(--color-text);
+  padding: 0.5rem 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-decoration: none;
+  box-shadow: 4px 4px 0 0 var(--color-text);
+  transition: all 0.1s ease;
+  cursor: pointer;
+}

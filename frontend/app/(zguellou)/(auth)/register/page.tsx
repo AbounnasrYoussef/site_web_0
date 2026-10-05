@@ -16,10 +16,10 @@ export default function RegisterPage() {
       </div>
       
       <div className="container flex justify-center z-2">
-        <div className="w-full sm:max-w-[70%] lg:max-w-[50%] bg-(--color-surface) border-2 border-(--color-text) shadow-[4px_4px_0_0_var(--color-text)]">
+        <div className="w-full sm:max-w-[70%] lg:max-w-[55%] bg-(--color-surface) border-2 border-(--color-text) shadow-[4px_4px_0_0_var(--color-text)]">
 
                 <div className="bg-(--color-highlight) border-b-[3px] border-b-black p-6 sm:p-8">
-                  <h1 className="uppercase font-black leading-none tracking-tight text-4xl sm:text-6xl lg:text-7xl">
+                  <h1 className="uppercase font-black leading-none tracking-tight text-4xl sm:text-5xl md:text-7xl lg:text-8xl">
                     {t('title')}
                   </h1>
 
@@ -55,7 +55,7 @@ export default function RegisterPage() {
                   <span className="text-(--color-muted)">{t('login.text')} </span>
                   <Link
                     href="/login"
-                    className="font-bold text-(--color-text) underline decoration-2 underline-offset-4 hover:text-(--color-accent)"
+                    className="uppercase font-bold text-(--color-text) underline decoration-2 underline-offset-4 hover:text-(--color-accent)"
                     >
                     {t('login.link')}
                   </Link>

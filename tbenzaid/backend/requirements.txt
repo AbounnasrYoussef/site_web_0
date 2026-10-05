@@ -1,0 +1,8 @@
+chromadb
+pdfplumber
+httpx
+fastapi
+uvicorn
+python-dotenv
+sentence_transformers
+slowapi

@@ -16,8 +16,6 @@ export default function ForgotPasswordForm() {
   const [generalError, setGeneralError] = useState<string | null>(null);
   const [rateLimitTimer, setRateLimitTimer] = useState<number | null>(null);
 
-  const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
-
   const { mutate, isPending, data, reset } = useMutation({
     mutationFn: async (email: string) => {
       const res = await fetch(
@@ -30,7 +28,6 @@ export default function ForgotPasswordForm() {
         }
       );
 
-      await sleep(1000);
 
       const json = await res.json();
 
@@ -116,6 +113,7 @@ export default function ForgotPasswordForm() {
         label={t('forgotPassword.emailLabel')}
         placeholder={t('forgotPassword.emailPlaceholder')}
         dir="ltr"
+        type='email'
         value={email}
         onChange={handleEmailChange}
         error={fieldError}

@@ -1,0 +1,451 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model categories {
+  id                         String                       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name                       String                       @unique @db.VarChar(255)
+  created_at                 DateTime                     @default(now()) @db.Timestamptz(6)
+  updated_at                 DateTime                     @default(now()) @db.Timestamptz(6)
+  category_translations      category_translations[]
+  programs                   programs[]
+  user_interested_categories user_interested_categories[]
+}
+
+model category_translations {
+  id          String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  category_id String      @db.Uuid
+  locale      locale_type
+  name        String      @db.VarChar(255)
+  categories  categories  @relation(fields: [category_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([category_id, locale], map: "category_translations_category_id_locale_uidx")
+}
+
+model cities {
+  id                   String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  created_at           DateTime               @default(now()) @db.Timestamptz(6)
+  city_translations    city_translations[]
+  university_locations university_locations[]
+}
+
+model city_translations {
+  id      String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  city_id String      @db.Uuid
+  locale  locale_type
+  name    String      @db.VarChar
+  region  String?     @db.VarChar
+  cities  cities      @relation(fields: [city_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([city_id, locale], map: "city_translations_city_id_locale_uidx")
+}
+
+model favoris {
+  user_id       String       @db.Uuid
+  university_id String       @db.Uuid
+  created_at    DateTime     @default(now()) @db.Timestamptz(6)
+  universities  universities @relation(fields: [university_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users         users        @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@id([user_id, university_id])
+  @@index([university_id])
+  @@index([user_id])
+}
+
+model notifications {
+  id                                     String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  receiver_id                            String                @db.Uuid
+  sender_id                              String?               @db.Uuid
+  category                               notification_category
+  title                                  String                @db.VarChar
+  message                                String?
+  admin_message                          String?
+  is_read                                Boolean               @default(false)
+  is_actioned                            Boolean               @default(false)
+  action_url                             String?
+  created_at                             DateTime              @default(now()) @db.Timestamptz(6)
+  users_notifications_receiver_idTousers users                 @relation("notifications_receiver_idTousers", fields: [receiver_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users_notifications_sender_idTousers   users?                @relation("notifications_sender_idTousers", fields: [sender_id], references: [id], onUpdate: NoAction)
+
+  @@index([category])
+  @@index([created_at(sort: Desc)], map: "notifications_created_at_desc_idx")
+  @@index([receiver_id])
+  @@index([receiver_id, is_read])
+}
+
+model program_translations {
+  id         String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  program_id String      @db.Uuid
+  locale     locale_type
+  name       String      @db.VarChar
+  programs   programs    @relation(fields: [program_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([program_id, locale], map: "program_translations_program_id_locale_uidx")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model programs {
+  id                                 String                    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  university_id                      String                    @db.Uuid
+  category_id                        String                    @db.Uuid
+  output_diploma_id                  String?                   @db.Uuid
+  years_of_study                     Int                       @db.SmallInt
+  monthly_subscription               Decimal?                  @db.Decimal(10, 2)
+  max_age                            Int?                      @db.SmallInt
+  has_concours                       Boolean                   @default(false)
+  diploma_recognition_abroad_status  diploma_recognition_type?
+  diploma_recognition_morocco_status diploma_recognition_type?
+  is_approved                        Boolean                   @default(false)
+  created_at                         DateTime                  @default(now()) @db.Timestamptz(6)
+  updated_at                         DateTime                  @default(now()) @db.Timestamptz(6)
+  program_job_titles                 program_job_titles[]
+  program_requirements               program_requirements[]
+  program_translations               program_translations[]
+  categories                         categories                @relation(fields: [category_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  diplomas                           diplomas?                 @relation(fields: [output_diploma_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  universities                       universities              @relation(fields: [university_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+model universities {
+  id                      String                    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  type                    university_type
+  is_approved             Boolean                   @default(false)
+  internat_available      Boolean                   @default(false)
+  bourse_available        Boolean                   @default(false)
+  abreviation             String?                   @unique
+  created_at              DateTime                  @default(now()) @db.Timestamptz(6)
+  updated_at              DateTime                  @default(now()) @db.Timestamptz(6)
+  favoris                 favoris[]
+  programs                programs[]
+  university_locations    university_locations[]
+  university_translations university_translations[]
+
+  @@index([is_approved])
+  @@index([type])
+}
+
+model university_locations {
+  id            String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  university_id String       @db.Uuid
+  city_id       String       @db.Uuid
+  address       String?
+  website       String?
+  longitude     Decimal?     @db.Decimal(9, 6)
+  latitude      Decimal?     @db.Decimal(9, 6)
+  image_url     String?
+  created_at    DateTime     @default(now()) @db.Timestamptz(6)
+  updated_at    DateTime     @default(now()) @db.Timestamptz(6)
+  cities        cities       @relation(fields: [city_id], references: [id], onUpdate: NoAction)
+  universities  universities @relation(fields: [university_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([university_id, city_id], map: "university_locations_university_id_city_id_uidx")
+  @@index([city_id])
+  @@index([university_id])
+}
+
+model university_translations {
+  id            String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  university_id String       @db.Uuid
+  locale        locale_type
+  name          String       @db.VarChar
+  description   String?
+  universities  universities @relation(fields: [university_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([university_id, locale], map: "university_translations_university_id_locale_uidx")
+}
+
+model user_devices {
+  id                     String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id                String           @db.Uuid
+  device_id              String           @db.VarChar
+  device_name            String?          @db.VarChar
+  device_identifier_hash String?          @unique
+  user_agent             String?
+  ip_address             String?          @db.Inet
+  last_used_at           DateTime         @default(now()) @db.Timestamptz(6)
+  is_trusted             Boolean          @default(false)
+  trusted_until          DateTime?        @db.Timestamptz(6)
+  created_at             DateTime         @default(now()) @db.Timestamptz(6)
+  refresh_tokens         refresh_tokens[]
+  users                  users            @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([last_used_at], map: "idx_user_devices_last_used_at")
+  @@index([user_id], map: "idx_user_devices_user_id")
+  @@index([user_id, device_identifier_hash], map: "idx_user_devices_user_id_hash")
+}
+
+model user_interested_categories {
+  user_id     String     @db.Uuid
+  category_id String     @db.Uuid
+  categories  categories @relation(fields: [category_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users       users      @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@id([user_id, category_id])
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model users {
+  id                                             String                       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  first_name                                     String?                      @db.VarChar(255)
+  last_name                                      String?                      @db.VarChar(255)
+  role                                           user_type                    @default(USER)
+  email                                          String?                      @unique @db.VarChar(255)
+  year_of_birth                                  Int?                         @db.SmallInt
+  is_dropout                                     Boolean                      @default(false)
+  profile_pic                                    String?
+  password_hash                                  String?                      @db.VarChar(255)
+  auth_provider                                  auth_provider_type           @default(LOCAL)
+  google_id                                      String?                      @db.VarChar(255)
+  is_2fa_enabled                                 Boolean                      @default(false)
+  pending_2fa_code                               String?                      @db.VarChar(255)
+  pending_2fa_expires_at                         DateTime?                    @db.Timestamptz(6)
+  pending_2fa_request_count                      Int?                         @default(0) @db.SmallInt
+  pending_2fa_attempts                           Int?                         @default(0) @db.SmallInt
+  pending_2fa_request_reset                      DateTime?                    @db.Timestamptz(6)
+  toggle_2fa_attempts                            Int?                         @default(0) @db.SmallInt
+  toggle_2fa_locked_until                        DateTime?                    @db.Timestamptz(6)
+  must_change_password                           Boolean?                     @default(false)
+  failed_login_attempts                          Int?                         @default(0) @db.SmallInt
+  locked_until                                   DateTime?                    @db.Timestamptz(6)
+  change_password_attempts                       Int                          @default(0) @db.SmallInt
+  change_password_locked_until                   DateTime?                    @db.Timestamptz(6)
+  created_at                                     DateTime                     @default(now()) @db.Timestamptz(6)
+  updated_at                                     DateTime                     @default(now()) @db.Timestamptz(6)
+  blacklisted_tokens                             blacklisted_tokens[]
+  favoris                                        favoris[]
+  notifications_notifications_receiver_idTousers notifications[]              @relation("notifications_receiver_idTousers")
+  notifications_notifications_sender_idTousers   notifications[]              @relation("notifications_sender_idTousers")
+  password_reset_tokens                          password_reset_tokens[]
+  refresh_tokens                                 refresh_tokens[]
+  user_devices                                   user_devices[]
+  user_diplomas                                  user_diplomas?
+  user_interested_categories                     user_interested_categories[]
+}
+
+model blacklisted_tokens {
+  token      String   @id
+  user_id    String   @db.Uuid
+  expires_at DateTime @db.Timestamptz(6)
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  users      users    @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([expires_at], map: "idx_blacklisted_tokens_expires_at")
+}
+
+model diploma_fields {
+  diploma_id String   @db.Uuid
+  field_id   String   @db.Uuid
+  diplomas   diplomas @relation(fields: [diploma_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  fields     fields   @relation(fields: [field_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@id([diploma_id, field_id])
+  @@index([field_id])
+}
+
+model diploma_translations {
+  id         String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  diploma_id String      @db.Uuid
+  name       String      @db.VarChar
+  locale     locale_type
+  diplomas   diplomas    @relation(fields: [diploma_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([diploma_id, locale])
+  @@index([diploma_id])
+}
+
+model diplomas {
+  id                   String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code                 String                 @unique @db.VarChar(100)
+  diploma_group        String                 @db.VarChar(50)
+  created_at           DateTime               @default(now()) @db.Timestamptz(6)
+  rank                 Int                    @default(12)
+  diploma_fields       diploma_fields[]
+  diploma_translations diploma_translations[]
+  program_requirements program_requirements[]
+  programs             programs[]
+  user_diplomas        user_diplomas[]
+}
+
+model field_translations {
+  id         String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  field_id   String      @db.Uuid
+  locale     locale_type
+  name       String      @db.VarChar
+  created_at DateTime    @default(now()) @db.Timestamptz(6)
+  updated_at DateTime    @default(now()) @db.Timestamptz(6)
+  fields     fields      @relation(fields: [field_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([field_id, locale])
+  @@index([field_id])
+}
+
+model fields {
+  id                  String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  created_at          DateTime              @default(now()) @db.Timestamptz(6)
+  updated_at          DateTime              @default(now()) @db.Timestamptz(6)
+  diploma_fields      diploma_fields[]
+  field_translations  field_translations[]
+  user_diploma_fields user_diploma_fields[]
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model job_titles {
+  id                      String                    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  salary                  Int
+  created_at              DateTime                  @default(now()) @db.Timestamptz(6)
+  updated_at              DateTime                  @default(now()) @db.Timestamptz(6)
+  job_titles_translations job_titles_translations[]
+  program_job_titles      program_job_titles[]
+}
+
+model password_reset_tokens {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id    String    @db.Uuid
+  token_hash String    @db.VarChar(64)
+  expires_at DateTime  @db.Timestamptz(6)
+  used_at    DateTime? @db.Timestamptz(6)
+  attempts   Int?      @default(0)
+  created_at DateTime? @default(now()) @db.Timestamptz(6)
+  users      users     @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([token_hash], map: "idx_password_reset_tokens_token_hash")
+  @@index([user_id], map: "idx_password_reset_tokens_user_id")
+}
+
+model program_job_titles {
+  id           String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  program_id   String     @db.Uuid
+  job_title_id String     @db.Uuid
+  created_at   DateTime   @default(now()) @db.Timestamptz(6)
+  updated_at   DateTime   @default(now()) @db.Timestamptz(6)
+  job_titles   job_titles @relation(fields: [job_title_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  programs     programs   @relation(fields: [program_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([program_id, job_title_id], map: "program_job_titles_program_id_job_title_id_uidx")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model program_requirements {
+  id                         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  program_id                 String    @db.Uuid
+  required_diploma_id        String?   @db.Uuid
+  min_grade                  Decimal?  @db.Decimal(4, 2)
+  max_years_since_graduation Int?      @db.SmallInt
+  requirement_group          Int       @default(1) @db.SmallInt
+  created_at                 DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at                 DateTime  @default(now()) @db.Timestamptz(6)
+  programs                   programs  @relation(fields: [program_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  diplomas                   diplomas? @relation(fields: [required_diploma_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([program_id, required_diploma_id], map: "program_requirements_program_id_required_diploma_id_uidx")
+}
+
+model refresh_tokens {
+  id           String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id      String        @db.Uuid
+  token_hash   String
+  device_id    String?       @db.Uuid
+  expires_at   DateTime      @db.Timestamptz(6)
+  revoked_at   DateTime?     @db.Timestamptz(6)
+  created_at   DateTime      @default(now()) @db.Timestamptz(6)
+  user_devices user_devices? @relation(fields: [device_id], references: [id], onUpdate: NoAction)
+  users        users         @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([expires_at], map: "idx_refresh_tokens_expires_at")
+  @@index([revoked_at], map: "idx_refresh_tokens_revoked_at")
+  @@index([token_hash], map: "idx_refresh_tokens_token_hash")
+  @@index([user_id], map: "idx_refresh_tokens_user_id")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model user_diploma_fields {
+  id              String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_diploma_id String        @db.Uuid
+  field_id        String        @db.Uuid
+  value           Decimal?      @db.Decimal(4, 2)
+  created_at      DateTime      @default(now()) @db.Timestamptz(6)
+  updated_at      DateTime      @default(now()) @db.Timestamptz(6)
+  fields          fields        @relation(fields: [field_id], references: [id], onUpdate: NoAction)
+  user_diplomas   user_diplomas @relation(fields: [user_diploma_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([user_diploma_id, field_id])
+  @@index([field_id])
+  @@index([user_diploma_id])
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model user_diplomas {
+  id                  String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id             String                @unique @db.Uuid
+  diploma_id          String                @db.Uuid
+  general_grade       Decimal?              @db.Decimal(4, 2)
+  obtained_year       Int?                  @db.SmallInt
+  created_at          DateTime              @default(now()) @db.Timestamptz(6)
+  updated_at          DateTime              @default(now()) @db.Timestamptz(6)
+  user_diploma_fields user_diploma_fields[]
+  diplomas            diplomas              @relation(fields: [diploma_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users               users                 @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+model contact_messages {
+  id         Int       @id @default(autoincrement())
+  name       String    @db.VarChar
+  email      String    @db.VarChar
+  message    String    @db.VarChar
+  created_at DateTime? @default(now()) @db.Timestamptz(6)
+}
+
+model job_titles_translations {
+  id           String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  job_title_id String      @db.Uuid
+  locale       locale_type
+  title        String
+  job_titles   job_titles  @relation(fields: [job_title_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([job_title_id, locale], map: "job_titles_translations_job_titles_id_locale_uidx")
+  @@unique([locale, title], map: "job_titles_translations_title_locale_uidx")
+}
+
+enum auth_provider_type {
+  LOCAL
+  GOOGLE
+}
+
+enum diploma_recognition_type {
+  RECOGNIZED
+  EVALUATION_REQUIRED
+  NOT_RECOGNIZED
+}
+
+enum locale_type {
+  EN
+  FR
+  AR
+}
+
+enum notification_category {
+  USER_ADD_UNIVERSITY
+  USER_ADD_PROGRAM
+  USER_REPORT_ISSUE
+  ADMIN_APPROVE_UNIVERSITY
+  ADMIN_DECLINE_UNIVERSITY
+  ADMIN_APPROVE_PROGRAM
+  ADMIN_DECLINE_PROGRAM
+}
+
+enum university_type {
+  PUBLIC
+  SEMI_PUBLIC
+  PRIVATE
+}
+
+enum user_type {
+  SUPERADMIN
+  ADMIN
+  USER
+}

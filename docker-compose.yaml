@@ -7,7 +7,7 @@ services:
     env_file:
       - .env
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
       - db_data:/var/lib/postgresql/data
     networks:
@@ -19,26 +19,26 @@ services:
       retries: 5
       start_period: 10s
 
-  # dbgate:
-  #   image: dbgate/dbgate
-  #   container_name: dbgate
-  #   restart: always
-  #   ports:
-  #     - "8000:3000"
-  #   networks:
-  #     - transcendence_network
-  #   depends_on:
-  #     db:
-  #       condition: service_healthy
+  dbgate:
+    image: dbgate/dbgate
+    container_name: dbgate
+    restart: always
+    ports:
+      - "8000:3000"
+    networks:
+      - transcendence_network
+    depends_on:
+      db:
+        condition: service_healthy
 
 #---------------zguellou-----------------------
   # zguellou-backend:
   #   build:
   #     context: ./zguellou/backend
   #   container_name: zguellou-backend
+  #   restart: unless-stopped
   #   env_file:
   #     - ./zguellou/.env
-  #     - .env
   #   ports:
   #     - "5000:5000"
   #   volumes:
@@ -57,7 +57,6 @@ services:
   #   container_name: moel-oua-backend
   #   env_file:
   #     - ./moel-oua/.env
-  #     - .env
   #   ports:
   #     - "5001:5001"
   #   volumes:
@@ -95,7 +94,6 @@ services:
     restart: unless-stopped
     env_file:
       - ./yabounna/.env
-      - .env
     ports:
       - "5003:5003"
     volumes:
@@ -108,30 +106,47 @@ services:
       - transcendence_network
 
 #---------------ctoujana uploader-----------------------
-  # ctoujana-uploader:
+#   ctoujana-uploader:
+#     build:
+#       context: ./ctoujana/uploader
+#     container_name: ctoujana-uploader
+#     restart: always
+#     env_file:
+#       - ./ctoujana/uploader/.env
+#     ports:
+#       - "3002:3002"
+#     volumes:
+#       - ./ctoujana/uploader:/usr/src/app
+#       - /usr/src/app/node_modules
+#     networks:
+#       - transcendence_network
+
+# #---------------ctoujana backend-----------------------
+  # ctoujana-backend:
   #   build:
-  #     context: ./ctoujana/uploader
-  #   container_name: ctoujana-uploader
+  #     context: ./ctoujana/backend
+  #   container_name: ctoujana-backend
   #   restart: always
   #   env_file:
-  #     - ./ctoujana/uploader/.env
-  #     - .env
+  #     - ./ctoujana/backend/.env
   #   ports:
-  #     - "3002:3002"
+  #     - "3003:3000"
   #   volumes:
-  #     - ./ctoujana/uploader:/usr/src/app
+  #     - ./ctoujana/backend:/usr/src/app
   #     - /usr/src/app/node_modules
-  #     - ./ctoujana/uploader/public:/usr/src/app/public
+  #   depends_on:
+  #     db:
+  #       condition: service_healthy
   #   networks:
   #     - transcendence_network
 
 #---------------FRONTEND-----------------------
   frontend:
     build:
-      context: frontend/
+      context: ./frontend
     container_name: frontend
     env_file:
-      - .env
+      - ./.env
     ports:
       - "3000:3000"
     volumes:
@@ -139,9 +154,11 @@ services:
       - /app/node_modules
     depends_on:
       # - zguellou-backend
-      - yabounna-backend
       # - moel-oua-backend
       # - tbenzaid-backend
+      - yabounna-backend
+      # - ctoujana-backend
+      # - ctoujana-uploader
     networks:
       - transcendence_network
 

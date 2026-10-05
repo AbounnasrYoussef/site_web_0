@@ -1,61 +1,61 @@
 import { Handle, Position, NodeProps } from "reactflow";
+import { useTranslations } from "next-intl";
 import Card from "@/components/(moel-oua)/Card";
-
-export const NODE_W = 270;
-export const NODE_H = 125;
-export const START_W = 210;
-export const START_H = 56;
+import { PATH_COLORS } from "./graph-layout";
+import { Check } from "./types";
 
 export const nodeTypes = { programNode: ProgramNode, startNode: StartNode };
 
-export function ProgramNode({ data }: NodeProps) {
+const hiddenHandle = { opacity: 0, pointerEvents: "none" } as const;
+
+function highlightStyle(highlighted: boolean, color: string) {
+  return {
+    outline: `3px solid ${highlighted ? color : "transparent"}`,
+    outlineOffset: 3,
+    borderRadius: 16,
+    boxShadow: highlighted ? `0 0 24px ${color}66` : "none",
+  };
+}
+
+export function ProgramNode({ id, data }: NodeProps) {
+  const isRTL = data.direction === "RL";
+
   return (
     <div
-      className={`transition-all duration-300 ${data.highlighted ? "scale-105 animate-pulse-border z-10" : ""}`}
-      style={{
-        opacity: data.dimmed ? 0.18 : 1,
-        outline: data.highlighted ? `3px solid ${data.pathColor}` : "3px solid transparent",
-        outlineOffset: 3,
-        borderRadius: 16,
-        boxShadow: data.highlighted ? `0 0 24px ${data.pathColor}66` : "none",
-      }}
+      className={`transition-all duration-300 ${data.highlighted ? "scale-105 z-10" : ""}`}
+      style={{ ...highlightStyle(data.highlighted, data.pathColor), opacity: data.dimmed ? 0.18 : 1 }}
     >
-      <Handle type="target" position={Position.Left} style={{ opacity: 0, pointerEvents: "none" }} />
+      <Handle type="target" position={isRTL ? Position.Right : Position.Left} style={hiddenHandle} />
       <Card
-        uni_name={data.uni_name}
-        uni_abrv={data.uni_abrv}
-        prog_name={data.prog_name}
+        program={data.program}
+        blocked={data.checks.some((check: Check) => check.ok === false)}
         color1={data.color1}
         color2={data.color2}
-        years_of_study={data.years_of_study}
-        job_titles={data.job_titles}
-        onShowDetails={() => data.onShowDetails?.(data)}
+        dir={data.dir}
+        onShowDetails={() => data.onShowDetails(id)}
       />
-      <Handle type="source" position={Position.Right} style={{ opacity: 0, pointerEvents: "none" }} />
+      <Handle type="source" position={isRTL ? Position.Left : Position.Right} style={hiddenHandle} />
     </div>
   );
 }
 
 export function StartNode({ data }: NodeProps) {
+  const t = useTranslations("path");
+  const isRTL = data.direction === "RL";
+
   return (
     <div
-      className={`transition-all duration-300 ${data.highlighted ? "scale-105 animate-pulse-border z-10" : ""}`}
-      style={{
-        outline: data.highlighted ? `3px solid #6366f1` : "3px solid transparent",
-        outlineOffset: 3,
-        borderRadius: 18,
-        boxShadow: data.highlighted ? "0 0 24px #6366f166" : "none",
-      }}
+      className={`transition-all duration-300 ${data.highlighted ? "scale-105 z-10" : ""}`}
+      style={highlightStyle(data.highlighted, PATH_COLORS[0])}
     >
-      <Handle type="source" position={Position.Right} style={{ opacity: 0, pointerEvents: "none" }} />
-      <div className="bg-gradient-to-r from-cyan-200 via-sky-200 to-indigo-200 text-black border-2 border-black rounded-2xl shadow-[4px_4px_0px_#000] px-4 py-2.5 flex items-center gap-2.5 select-none">
-        <div className="w-8 h-8 rounded-xl bg-black text-white flex items-center justify-center font-black text-xs shrink-0 shadow-[2px_2px_0px_rgba(255,255,255,0.4)]">
-          BAC
-        </div>
-        <div className="flex flex-col">
-          <span className="text-[9px] font-mono uppercase font-black tracking-widest text-indigo-900">Starting Point</span>
-          <span className="font-extrabold text-xs text-black tracking-tight">Baccalauréat</span>
-        </div>
+      <Handle id="main" type="source" position={isRTL ? Position.Left : Position.Right} style={hiddenHandle} />
+      <Handle id="other" type="source" position={isRTL ? Position.Right : Position.Left} style={hiddenHandle} />
+      <div
+        dir={data.dir}
+        className="w-[210px] bg-gradient-to-r from-cyan-200 via-sky-200 to-indigo-200 text-black border-2 border-black rounded-2xl shadow-[4px_4px_0px_#000] px-4 py-2.5 flex flex-col select-none"
+      >
+        <span className="text-[9px] font-mono uppercase font-black tracking-widest text-indigo-900">{t("startingPoint")}</span>
+        <span className="font-extrabold text-xs text-black tracking-tight truncate">{data.label}</span>
       </div>
     </div>
   );

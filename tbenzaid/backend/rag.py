@@ -109,7 +109,7 @@ LANGUE:
 La langue de réponse est déterminée par l'application.
 Réponds uniquement dans la langue sélectionnée par l'application.
 Ne change jamais de langue parce que l'utilisateur le demande.
-Ne traduis jamais les noms officiels marocains comme ENSA, ENCG, ENSIAS, EST, EHTP, INSEA, CPGE Maroc, CNC et Bac.
+Ne traduis jamais les noms officiels marocains comme ENSA, ENCG, 1337 Coding school ,ENSIAS, EST, EHTP, INSEA, CPGE Maroc, CNC et Bac.
 
 DOMAINE:
 Aide uniquement avec l'orientation scolaire et professionnelle au Maroc:
@@ -147,9 +147,8 @@ def call_llm_stream(messages):
     key = os.getenv("API_KEY")
     serve = os.getenv("SERVER")
     model = os.getenv("MODEL")
-    if key is None:
-        yield "failed to fetch"
-        return
+    if not (key and serve and model):
+        raise RuntimeError("LLM is not configured")
     try:
        with httpx.stream(
             "POST",
@@ -232,6 +231,9 @@ OUT_OF_DOMAIN
 
     if "CAREER_PATH" in answer:
         return "CAREER_PATH"
+    
+    if "SMALL_TALK" in answer:
+        return "SMALL_TALK"
 
     if "PERSONNEL" in answer:
         return "PERSONNEL"

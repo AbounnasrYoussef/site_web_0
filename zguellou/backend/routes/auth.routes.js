@@ -5,10 +5,10 @@ const validate = require('../middleware/validate');
 const { registerSchema, loginSchema, changePasswordSchema, updateProfileSchema, changeOwnPasswordSchema } = require('../middleware/validationSchemas');
 const authController = require('../controllers/auth.controller');
 const tokenAttemptLimiter = require('../middleware/tokenAttemptLimiter');
-const { forgotPasswordSchema, resetPasswordSchema } = require('../middleware/validationSchemas');
+const { forgotPasswordSchema, resetPasswordSchema, deleteAccountSchema } = require('../middleware/validationSchemas');
 
 const multer = require('multer');
-const { loginIpRateLimit, googleRedirectRateLimit, googleCallbackRateLimit, registerIpRateLimit, resetLimiter, refreshRateLimit, verify2faRateLimit, profileUpdateRateLimit, toggle2faRateLimit, changeOwnPasswordRateLimit } = require('../middleware/AuthRateLimit');
+const { loginIpRateLimit, googleRedirectRateLimit, googleCallbackRateLimit, registerIpRateLimit, resetLimiter, refreshRateLimit, verify2faRateLimit, profileUpdateRateLimit, toggle2faRateLimit, changeOwnPasswordRateLimit, deleteAccountRateLimit } = require('../middleware/AuthRateLimit');
 const upload = multer({ storage: multer.memoryStorage() });
 
 
@@ -17,6 +17,7 @@ router.post('/login', loginIpRateLimit, loginSchema, validate, authController.lo
 router.post('/refresh', refreshRateLimit, authController.refreshToken);
 
 router.post('/logout', authController.logout);
+router.post('/delete-my-account', authenticate, deleteAccountRateLimit, deleteAccountSchema, validate, authController.deleteAccount);
 
 router.get('/profile', authenticate, authController.getProfile);
 router.patch('/profile', authenticate, profileUpdateRateLimit, upload.single('profile_pic'), updateProfileSchema, validate, authController.updateProfile);

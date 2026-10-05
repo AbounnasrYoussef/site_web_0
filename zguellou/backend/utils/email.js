@@ -24,7 +24,7 @@ const theme = {
   linkColor: '#007bff',
 };
 
-const ASSETS_BASE_URL = process.env.ASSETS_BASE_URL || process.env.BACKEND_URL || '';
+const ASSETS_BASE_URL = process.env.ASSETS_BASE_URL || '';
 
 const ICONS = {
   key: `${ASSETS_BASE_URL}/key.png`,
@@ -124,7 +124,6 @@ async function sendViaResend(payload, context) {
   const { data, error } = await resend.emails.send(payload);
   if (error) {
     console.error(`Resend error (${context}):`, error);
-    throw new Error(`Failed to send ${context}: ${error.message}`);
   }
   return data;
 }

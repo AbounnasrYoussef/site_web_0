@@ -1,23 +1,33 @@
+import { Program } from "../path/types";
+
 export interface School {
   id: string;
+  university_id: string;
   name: string;
   abrv: string;
+  type: string;
   city: string;
-  category: string;
-  coordinates: [number, number];
-  color: string;
-  address: string;
-  years: number;
+  address: string | null;
+  website: string | null;
+  latitude: number;
+  longitude: number;
 }
 
 export interface CityGroup {
   city: string;
-  count: number;
-  coordinates: [number, number];
-  color: string;
+  center: [number, number];
   schools: School[];
 }
 
-export interface MapViewProps {
-  className?: string;
+export interface University {
+  id: string;
+  name: string;
+  description: string | null;
+  abrv: string;
+  type: string;
+  internat_available: boolean;
+  bourse_available: boolean;
+  image: string | null;
+  locations: School[];
+  programs: Program[];
 }

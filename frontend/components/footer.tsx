@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { useTranslations } from 'next-intl';
+import Logo from './logo';
 
 export default function Footer() {
   const t = useTranslations('footer');
@@ -23,9 +24,10 @@ export default function Footer() {
           <div className="flex flex-col items-center gap-4 md:flex-row">
             <Link
               href="/"
-              className="inline-block text-xl font-extrabold tracking-tight transition-transform duration-150 hover:-translate-y-0.5 active:translate-y-0.5 active:scale-95"
+              className="inline-flex items-center gap-2 text-xl font-extrabold tracking-tight transition-transform duration-150 hover:-translate-y-0.5 active:translate-y-0.5 active:scale-95"
             >
-              KHARITA
+              <Logo variant="icon" className="h-8 w-8" />
+              {tLogo('logo')}
             </Link>
             <div className="text-center text-sm">
               © {new Date().getFullYear()} {tLogo('logo')} - {t('phrase')}
@@ -49,9 +51,10 @@ export default function Footer() {
         <div className="hidden lg:flex lg:items-center lg:justify-between">
           <Link
             href="/"
-            className="inline-block text-xl font-extrabold tracking-tight transition-transform duration-150 hover:-translate-y-0.5 active:translate-y-0.5 active:scale-95"
+            className="inline-flex items-center gap-2 text-xl font-extrabold tracking-tight transition-transform duration-150 hover:-translate-y-0.5 active:translate-y-0.5 active:scale-95"
           >
-            KHARITA
+            <Logo variant="icon" className="h-8 w-8" />
+            {tLogo('logo')}
           </Link>
           <div className="text-center text-sm">
             © {new Date().getFullYear()} {tLogo('logo')} - {t('phrase')}

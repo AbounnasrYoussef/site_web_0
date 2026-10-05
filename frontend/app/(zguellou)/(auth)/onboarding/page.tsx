@@ -165,6 +165,7 @@ const Step2Content = ({ formData, errors, updateField, t }: any) => {
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
         <Input
           label={t('step2.firstName')}
+          type="text"
           icon={<FirstNameIcon className="w-4 h-4" />}
           placeholder={t('step2.firstNamePlaceholder')}
           value={formData.first_name}
@@ -174,6 +175,7 @@ const Step2Content = ({ formData, errors, updateField, t }: any) => {
 
         <Input
           label={t('step2.lastName')}
+          type="text"
           icon={<LastNameIcon className="w-4 h-4" />}
           placeholder={t('step2.lastNamePlaceholder')}
           value={formData.last_name}
@@ -672,23 +674,26 @@ export default function OnboardingPage() {
               )}
 
               <div className='flex gap-2'>
-                <FullButton
-                  text={t('skipStep')}
-                  onClick={handleSkipStep}
-                  backgroundColor="var(--color-surface)"
-                >
-                  <SkipIcon className="w-4 h-4 rtl:rotate-180" />
-                </FullButton>
-
-                {step < 4 && (
+              {step < 4 && (
+                <>
                   <FullButton
-                    text={t('next')}
-                    onClick={handleNext}
-                    className='flex-row-reverse'
-                    backgroundColor="var(--color-highlight)"
+                    text={t('skipStep')}
+                    onClick={handleSkipStep}
+                    backgroundColor="var(--color-surface)"
                   >
-                    <ArrowRightIcon className="w-4 h-4 rtl:rotate-180" />
+                    <SkipIcon className="w-4 h-4 rtl:rotate-180" />
                   </FullButton>
+
+                  
+                    <FullButton
+                      text={t('next')}
+                      onClick={handleNext}
+                      className='flex-row-reverse'
+                      backgroundColor="var(--color-highlight)"
+                    >
+                      <ArrowRightIcon className="w-4 h-4 rtl:rotate-180" />
+                    </FullButton>
+                </>
                 )}
 
                 {step === 4 && (

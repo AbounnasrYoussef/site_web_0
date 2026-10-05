@@ -9,7 +9,7 @@ const registerSchema = checkSchema({
     exists: { errorMessage: 'validation/required_field' },
     notEmpty: { errorMessage: 'validation/required_field' },
     trim: true,
-    normalizeEmail: true,
+    toLowerCase: true,
     isEmail: { errorMessage: 'validation/invalid_email' },
     isLength: {
       options: { max: 254 },
@@ -71,7 +71,7 @@ const loginSchema = checkSchema({
     exists: { errorMessage: 'validation/required_field' },
     notEmpty: { errorMessage: 'validation/required_field' },
     trim: true,
-    normalizeEmail: true,
+    toLowerCase: true,
     isEmail: { errorMessage: 'validation/invalid_email' },
   },
   password: {
@@ -87,7 +87,7 @@ const forgotPasswordSchema = checkSchema({
     exists: { errorMessage: 'validation/required_field' },
     notEmpty: { errorMessage: 'validation/required_field' },
     trim: true,
-    normalizeEmail: true,
+    toLowerCase: true,
     isEmail: { errorMessage: 'validation/invalid_email' },
   },
 });
@@ -197,6 +197,23 @@ const changeOwnPasswordSchema = checkSchema({
   },
 });
 
+const deleteAccountSchema = checkSchema({
+  password: {
+    in: ['body'],
+    optional: { options: { checkFalsy: true } },
+    isString: { errorMessage: 'validation/invalid_string' },
+    notEmpty: { errorMessage: 'validation/required_field' },
+  },
+  confirmationEmail: {
+    in: ['body'],
+    optional: { options: { checkFalsy: true } },
+    isString: { errorMessage: 'validation/invalid_string' },
+    trim: true,
+    toLowerCase: true,
+    isEmail: { errorMessage: 'validation/invalid_email' },
+  },
+});
+
 module.exports = {
   registerSchema,
   loginSchema,
@@ -205,4 +222,5 @@ module.exports = {
   changePasswordSchema,
   updateProfileSchema,
   changeOwnPasswordSchema,
+  deleteAccountSchema
 };

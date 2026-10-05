@@ -1,7 +1,14 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 from rag import (
     sessions,
@@ -32,10 +39,14 @@ class ChatRequest(BaseModel):
     locale: str = "en"
     
     
-app = FastAPI() 
+limiter = Limiter(key_func=get_remote_address)
+app = FastAPI()
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+     allow_origins=[os.getenv("FRONTEND_URL")],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -54,7 +65,8 @@ def reset_chat(user_id: str):
 
 
 @app.post("/chat")
-def chat(req: ChatRequest):
+@limiter.limit("10/minute")
+def chat(request: Request, req: ChatRequest):
     language_map = {
         "en": "English",
         "fr": "French",
@@ -183,4 +195,3 @@ def chat(req: ChatRequest):
     generate(),
     media_type="text/plain"
 )
-# What is Server-Sent Events (SSE)

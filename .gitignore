@@ -1,0 +1,41 @@
+node_modules/
+.env
+.env.test
+/npm-debug.log
+.DS_Store
+logs/
+.next/
+out/
+__pycache__/
+dist/
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Virtual environment
+venv/
+env/
+.venv/
+
+
+# SQLite - ancien système
+*.db
+*.sqlite
+*.sqlite3
+
+# Uploads
+storage/uploads/*
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+
+
+node_modules/
+.next/
+.env
+.env.local

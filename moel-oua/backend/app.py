@@ -1,194 +1,207 @@
-from flask import Flask, request, render_template, jsonify
-from path_finder import PathFinder
-from flask_admin import Admin
-from flask_admin.contrib.peewee import ModelView
+import os
+from datetime import date
+from uuid import UUID
+from flask import Flask, request, jsonify
 from flask_cors import CORS
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
+from peewee import prefetch
 from models import (
-    db, JobTitle, Diploma, Program, University, Category, User, 
-    ProgramJobTitle, ProgramRequirement, CategoryTranslation, 
-    DiplomaTranslation, UniversityTranslation, ProgramTranslation
+    db, translate, DEFAULT_LOCALE, LOCALES,
+    University, UniversityTranslation, UniversityLocation, City, CityTranslation,
+    Diploma, DiplomaTranslation, JobTitle, JobTitleTranslation,
+    Program, ProgramTranslation, ProgramRequirement, ProgramJobTitle,
 )
-from admin.admin import ProgramView, RequirementView, DiplomaView, UniversityView
-import random
+from path_finder import find_paths
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'testing'
+CORS(app, origins=[os.environ["FRONTEND_URL"]])
+Limiter(get_remote_address, app=app, default_limits=[os.environ.get("RATE_LIMIT", "60 per minute")])
 
-admin = Admin(app, name='Admin')
-
-admin.add_view(ModelView(Category))
-admin.add_view(ModelView(JobTitle))
-admin.add_view(UniversityView(University))
-admin.add_view(DiplomaView(Diploma))
-admin.add_view(ModelView(User))
-admin.add_view(ProgramView(Program))
-admin.add_view(RequirementView(ProgramRequirement))
-admin.add_view(ModelView(CategoryTranslation))
-admin.add_view(ModelView(DiplomaTranslation))
-admin.add_view(ModelView(UniversityTranslation))
-admin.add_view(ModelView(ProgramTranslation))
 
 @app.before_request
-def before_request():
-    db.connect()
+def open_db():
+    db.connect(reuse_if_open=True)
+
 
 @app.teardown_request
-def teardown_request(exc):
+def close_db(error):
     if not db.is_closed():
         db.close()
 
 
-@app.route("/")
-def home():
-    return render_template("index.html")
-
-@app.route("/api/categories")
-def get_categories():
-    locale = request.args.get('locale', 'EN').upper()    
-    query = (Category
-             .select(Category.id, CategoryTranslation.name)
-             .join(CategoryTranslation)
-             .where(CategoryTranslation.locale == locale)
-             .dicts())
-             
-    send = [
-        {
-            "id": str(item["id"]),
-            "name": item["name"]
-        }
-        for item in query
-    ]
-    return jsonify(send)
-
-@app.route("/api/diplomas")
-def get_diplomas():
-    locale = request.args.get('locale', 'EN').upper()    
-    query = (Diploma
-             .select(Diploma.id, DiplomaTranslation.name)
-             .join(DiplomaTranslation)
-             .where(DiplomaTranslation.locale == locale)
-             .dicts())
-             
-    send = [
-        {
-            "id": str(item["id"]),
-            "name": item["name"]
-        }
-        for item in query
-    ]
-    return jsonify(send)
-
-def get_color_pair(program_id):
-    NEO_COLORS = [
-        {"color1": "#FFD166", "color2": "#06D6A0"},
-        {"color1": "#FF9F1C", "color2": "#2EC4B6"},
-        {"color1": "#9BF6FF", "color2": "#CAFFBF"},
-        {"color1": "#FFADAD", "color2": "#FDFFB6"},
-        {"color1": "#BDB2FF", "color2": "#FFC6FF"},
-        {"color1": "#A8E6CF", "color2": "#DCEDC1"},
-        {"color1": "#FF8B94", "color2": "#FFAAA5"},
-        {"color1": "#81D4FA", "color2": "#E1BEE7"},
-        {"color1": "#FFE082", "color2": "#80CBC4"},
-        {"color1": "#F8A5C2", "color2": "#F190B7"},
-        {"color1": "#C5E1A5", "color2": "#FFF59D"},
-        {"color1": "#FFAB91", "color2": "#80DEEA"},
-    ]
-    idx = abs(hash(str(program_id))) % len(NEO_COLORS)
-    return NEO_COLORS[idx]
+def get_locale():
+    locale = request.args.get("locale", DEFAULT_LOCALE).upper()
+    return locale if locale in LOCALES else DEFAULT_LOCALE
 
 
-@app.route("/api/job-titles")
-def get_job_titles():
-    jobs = JobTitle.select(JobTitle.id, JobTitle.title, JobTitle.salary).dicts()
-    return jsonify([{"id": str(j["id"]), "title": j["title"], "salary": j["salary"]} for j in jobs])
+def get_uuid(name):
+    try:
+        return UUID(request.args.get(name, ""))
+    except ValueError:
+        return None
 
 
-@app.route("/api/find-paths", methods=["POST"])
-def find_path():
-   
-    data = request.get_json(force=True)
-    local_lang = data.get("local", None)
-    category_id = data.get("category_id", None)
-    starting_diploma_id = data.get("starting_diploma_id", None)
-    job_title_id = data.get("job_title_id", None)
-    finder = PathFinder()
-    paths = finder.find_paths(category_id, starting_diploma_id)
-    if isinstance(paths, dict) and "error" in paths:
-        return jsonify({'data': []}), 200
+def get_number(name, low, high, cast=float):
+    """Optional numeric query param: None when absent, ValueError when out of range."""
+    raw = request.args.get(name, "").strip()
+    if not raw:
+        return None
+    value = cast(raw)
+    if not low <= value <= high:
+        raise ValueError(name)
+    return value
 
-    serialized_paths = []
-    for path in paths:
-        serialized_path = []
-        path_job_ids = set()
-        for program in path:
-            for pjt in program.potential_jobs:
-                path_job_ids.add(str(pjt.job_title.id))
-        if job_title_id and job_title_id not in path_job_ids:
-            continue
-        for program in path:
-            uni = program.university
-            uni_translation = uni.translations.filter(locale='EN').first()
-            uni_name = uni_translation.name if uni_translation else uni.abreviation or 'Unknown'
-            uni_desc = uni_translation.description if uni_translation and uni_translation.description else ''
-            uni_abrv = uni.abreviation or uni_name[:4].upper()
-            uni_type = uni.type if hasattr(uni, 'type') else 'PUBLIC'
-            colors = get_color_pair(program.id)
 
-            output_dip_name = ''
-            if program.output_diploma:
-                dt = program.output_diploma.translations.filter(locale='EN').first()
-                output_dip_name = dt.name if dt else program.output_diploma.code
+def get_student():
+    year = date.today().year
+    return {
+        "grade": get_number("grade", 0, 20),
+        "birth_year": get_number("birth_year", 1900, year, int),
+        "graduation_year": get_number("graduation_year", 1950, year, int),
+    }
 
-            requirements = []
-            for req in program.admission_requirements:
-                req_dip_name = ''
-                if req.required_diploma:
-                    rdt = req.required_diploma.translations.filter(locale='EN').first()
-                    req_dip_name = rdt.name if rdt else req.required_diploma.code
-                requirements.append({
-                    "required_diploma": req_dip_name,
-                    "min_grade": float(req.min_grade) if req.min_grade else None,
-                    "max_years_since_graduation": req.max_years_since_graduation,
-                })
 
-            job_titles = [
-                {"id": str(pjt.job_title.id), "title": pjt.job_title.title, "salary": pjt.job_title.salary}
-                for pjt in program.potential_jobs
-            ]
+def number(value):
+    return float(value) if value is not None else None
 
-            uni_loc = uni.locations.first() if hasattr(uni, 'locations') else None
-            uni_image = uni_loc.image_url if uni_loc and uni_loc.image_url else 'https://images.unsplash.com/photo-1541829070764-84a7d30dd3f3?auto=format&fit=crop&w=800&q=80'
-            uni_website = uni_loc.website if uni_loc and uni_loc.website else ''
-            uni_address = uni_loc.address if uni_loc and uni_loc.address else ''
 
-            serialized_path.append({
-                "id": str(program.id),
-                "uni_name": uni_name,
-                "uni_abrv": uni_abrv,
-                "uni_type": uni_type,
-                "uni_desc": uni_desc,
-                "uni_image": uni_image,
-                "uni_website": uni_website,
-                "uni_address": uni_address,
-                "internat_available": bool(uni.internat_available),
-                "bourse_available": bool(uni.bourse_available),
-                "prog_name": program.title,
-                "years_of_study": program.years_of_study,
-                "monthly_subscription": float(program.monthly_subscription) if program.monthly_subscription else 0,
-                "max_age": program.max_age,
-                "has_concours": bool(program.has_concours),
-                "recognition_abroad": program.diploma_recognition_abroad_status or 'UNSPECIFIED',
-                "recognition_morocco": program.diploma_recognition_morocco_status or 'UNSPECIFIED',
-                "output_diploma": output_dip_name,
-                "requirements": requirements,
-                "color1": colors["color1"],
-                "color2": colors["color2"],
-                "job_titles": job_titles,
-            })
-        serialized_paths.append(serialized_path)
-    return jsonify({'data': serialized_paths})
+def name_of(translations, locale):
+    translation = translate(translations, locale)
+    return translation.name if translation else None
 
-if __name__ == "__main__":
 
-    CORS(app, origins=["http://localhost:3000"])
-    app.run(debug=True, port=5001)
+def get_diploma_names(locale):
+    diplomas = prefetch(Diploma.select(), DiplomaTranslation)
+    return {diploma.id: name_of(diploma.translations, locale) or diploma.code for diploma in diplomas}
+
+
+def job_to_dict(job_title, locale):
+    translation = translate(job_title.translations, locale)
+    return {
+        "id": job_title.id,
+        "title": translation.title if translation else None,
+        "salary": job_title.salary,
+    }
+
+
+def requirement_to_dict(requirement, diploma_names):
+    return {
+        "required_diploma": diploma_names.get(requirement.required_diploma_id),
+        "min_grade": number(requirement.min_grade),
+    }
+
+
+def program_to_dict(program, locale, diploma_names):
+    university = program.university
+    translation = translate(university.translations, locale)
+    location = university.locations[0] if university.locations else None
+    return {
+        "id": program.id,
+        "prog_name": name_of(program.translations, locale),
+        "years_of_study": program.years_of_study,
+        "monthly_subscription": number(program.monthly_subscription),
+        "max_age": program.max_age,
+        "has_concours": program.has_concours,
+        "recognition_morocco": program.diploma_recognition_morocco_status,
+        "recognition_abroad": program.diploma_recognition_abroad_status,
+        "output_diploma": diploma_names.get(program.output_diploma_id),
+        "uni_name": translation.name if translation else university.abreviation,
+        "uni_desc": translation.description if translation else None,
+        "uni_abrv": university.abreviation,
+        "uni_type": university.type,
+        "uni_image": location.image_url if location else None,
+        "uni_website": location.website if location else None,
+        "uni_address": location.address if location else None,
+        "internat_available": university.internat_available,
+        "bourse_available": university.bourse_available,
+        "requirements": [requirement_to_dict(r, diploma_names) for r in program.requirements],
+        "job_titles": [job_to_dict(j.job_title, locale) for j in program.jobs],
+    }
+
+
+def location_to_dict(location, locale):
+    university = location.university
+    return {
+        "id": location.id,
+        "university_id": university.id,
+        "name": name_of(university.translations, locale) or university.abreviation,
+        "abrv": university.abreviation,
+        "type": university.type,
+        "city": name_of(location.city.translations, locale),
+        "address": location.address,
+        "website": location.website,
+        "latitude": number(location.latitude),
+        "longitude": number(location.longitude),
+    }
+
+
+@app.route("/api/paths")
+def get_paths():
+    category_id = get_uuid("category_id")
+    diploma_id = get_uuid("diploma_id")
+    if category_id is None or diploma_id is None:
+        return jsonify({"error": "category_id and diploma_id must be valid ids"}), 400
+
+    try:
+        student = get_student()
+    except ValueError:
+        return jsonify({"error": "grade, birth_year and graduation_year must be valid numbers"}), 400
+
+    locale = get_locale()
+    paths = find_paths(category_id, diploma_id, student)
+    program_ids = {program.id for path in paths for program in path["programs"]}
+    programs = prefetch(
+        Program.select().where(Program.id.in_(program_ids)),
+        ProgramTranslation, ProgramRequirement, ProgramJobTitle, JobTitle, JobTitleTranslation,
+        University, UniversityTranslation, UniversityLocation,
+    )
+    diploma_names = get_diploma_names(locale)
+    details = {program.id: program_to_dict(program, locale, diploma_names) for program in programs}
+    return jsonify({"paths": [
+        {**path, "programs": [details[program.id] for program in path["programs"]]} for path in paths
+    ]})
+
+
+@app.route("/api/universities")
+def get_universities():
+    locale = get_locale()
+    approved = UniversityLocation.select().join(University).where(
+        University.is_approved == True,
+        UniversityLocation.latitude.is_null(False),
+        UniversityLocation.longitude.is_null(False),
+    )
+    locations = prefetch(approved, University, UniversityTranslation, City, CityTranslation)
+    return jsonify({"universities": [location_to_dict(location, locale) for location in locations]})
+
+
+@app.route("/api/universities/<uuid:university_id>")
+def get_university(university_id):
+    locale = get_locale()
+    university = University.get_or_none(University.id == university_id, University.is_approved == True)
+    if university is None:
+        return jsonify({"error": "university not found"}), 404
+
+    translation = translate(university.translations, locale)
+    locations = prefetch(
+        UniversityLocation.select().where(UniversityLocation.university == university),
+        University, UniversityTranslation, City, CityTranslation,
+    )
+    programs = prefetch(
+        Program.select().where(Program.university == university, Program.is_approved == True),
+        ProgramTranslation, ProgramRequirement, ProgramJobTitle, JobTitle, JobTitleTranslation,
+        University, UniversityTranslation, UniversityLocation,
+    )
+    diploma_names = get_diploma_names(locale)
+    return jsonify({"university": {
+        "id": university.id,
+        "name": translation.name if translation else university.abreviation,
+        "description": translation.description if translation else None,
+        "abrv": university.abreviation,
+        "type": university.type,
+        "internat_available": university.internat_available,
+        "bourse_available": university.bourse_available,
+        "image": next((location.image_url for location in locations if location.image_url), None),
+        "locations": [location_to_dict(location, locale) for location in locations],
+        "programs": [program_to_dict(program, locale, diploma_names) for program in programs],
+    }})

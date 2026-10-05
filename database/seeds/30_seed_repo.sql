@@ -60,23 +60,34 @@ INSERT INTO fields (id) VALUES
   ('91000000-0000-0000-0000-000000000004')
 ON CONFLICT (id) DO NOTHING;
 -- ---- seed: job_titles ----
-INSERT INTO job_titles (id, title, salary) VALUES
+INSERT INTO job_titles (id, salary) VALUES
   (
     'a1000000-0000-0000-0000-000000000001',
-    'Software Engineer',
     12000
   ),
   (
     'a1000000-0000-0000-0000-000000000002',
-    'Data Scientist',
     14000
   ),
   (
     'a1000000-0000-0000-0000-000000000003',
-    'Civil Engineer',
     11000
   )
 ON CONFLICT (id) DO NOTHING;
+
+-- ---- seed: job_titles_translations ----
+INSERT INTO job_titles_translations (job_title_id, locale, title) VALUES
+('a1000000-0000-0000-0000-000000000001', 'EN', 'Software Enginner'),
+('a1000000-0000-0000-0000-000000000001', 'FR', 'Ingénieur logiciel'),
+('a1000000-0000-0000-0000-000000000001', 'AR', 'مهندس برمجيات'),
+('a1000000-0000-0000-0000-000000000002', 'EN', 'Data Scientist'),
+('a1000000-0000-0000-0000-000000000002', 'FR', 'Data Scientist'),
+('a1000000-0000-0000-0000-000000000002', 'AR', 'عالم بيانات'),
+('a1000000-0000-0000-0000-000000000003', 'EN', 'Civil Engineer'),
+('a1000000-0000-0000-0000-000000000003', 'FR', 'Ingénieur civil'),
+('a1000000-0000-0000-0000-000000000003', 'AR', 'مهندس مدني')
+ON CONFLICT (id) DO NOTHING;
+
 -- ---- seed: diplomas ----
 INSERT INTO diplomas (code, diploma_group, rank) VALUES
   ('BAC_SC_MATH_A', 'BAC', 12),
@@ -150,15 +161,15 @@ INSERT INTO users (
 ) VALUES
   (
     '70000000-0000-0000-0000-000000000004',
-    'Karim', 'El Mansouri', 'SUPERADMIN',
-    'requiredanne-marie@web-library.net',
+    'Karim', 'El Mansouri', 'ADMIN',
+    'linnet5@uberip.com',
     '$2b$10$5apXnGTweR1Zb3J0gFnEwOUECp9tBMt./zkCIfdYuf3TAieKI8q3a', 
     'LOCAL', NULL, 1995,
     false, true
   ),
   (
-    '70000000-0000-0000-0000-000000000001', 'Yassine', 'Benali', 'ADMIN',
-    'admin@admin.com', '$2b$10$5apXnGTweR1Zb3J0gFnEwOUECp9tBMt./zkCIfdYuf3TAieKI8q3a', 'LOCAL', NULL, 2001,
+    '70000000-0000-0000-0000-000000000001', 'Yassine', 'Benali', 'SUPERADMIN',
+    '257able@web-library.net', '$2b$10$5apXnGTweR1Zb3J0gFnEwOUECp9tBMt./zkCIfdYuf3TAieKI8q3a', 'LOCAL', NULL, 2001,
     false, true
   ),
   (
@@ -708,9 +719,10 @@ ON CONFLICT (university_id, locale) DO NOTHING;
 
 -- ---- seed: university_locations ----
 INSERT INTO university_locations (id, university_id, city_id, address, website, longitude, latitude, image_url) VALUES
-  ('50000000-0000-0000-0000-000000000001', '40000000-0000-0000-0000-000000000001', '30000000-0000-0000-0000-000000000001', 'Km 7, Route El Jadida, Casablanca', 'https://ensam-casablanca.ma', -7.650000, 33.550000, 'https://example.com/img/ensa-casa.jpg'),
-  ('50000000-0000-0000-0000-000000000002', '40000000-0000-0000-0000-000000000002', '30000000-0000-0000-0000-000000000002', 'Technopolis, Rabat-Shore', 'https://uir.ac.ma', -6.860000, 34.010000, 'https://example.com/img/uir.jpg'),
-  ('50000000-0000-0000-0000-000000000003', '40000000-0000-0000-0000-000000000003', '30000000-0000-0000-0000-000000000003', 'Lot 660, Hay Moulay Rachid, Ben Guerir', 'https://um6p.ma', -7.950000, 32.230000, 'https://example.com/img/um6p.jpg')
+  ('50000000-0000-0000-0000-000000000001', '40000000-0000-0000-0000-000000000001', '30000000-0000-0000-0000-000000000001', 'Km 7, Route El Jadida, Casablanca', 'https://ensam-casablanca.ma', -7.650000, 33.550000, 'http://localhost:3002/api/public/images/universities/58540296-8575-41e5-80ac-f585c3cd05c1.webp'),
+  ('50000000-0000-0000-0000-000000000002', '40000000-0000-0000-0000-000000000002', '30000000-0000-0000-0000-000000000002', 'Technopolis, Rabat-Shore', 'https://uir.ac.ma', -6.860000, 34.010000, 'http://localhost:3002/api/public/images/universities/87886ef3-b406-4537-bf43-132f4752f5ca.webp'),
+  ('50000000-0000-0000-0000-000000000003', '40000000-0000-0000-0000-000000000003', '30000000-0000-0000-0000-000000000003', 'Lot 660, Hay Moulay Rachid, Ben Guerir', 'https://um6p.ma', -7.950000, 32.230000, 'http://localhost:3002/api/public/images/universities/943ccc9b-eba1-4d5f-ae01-9bf0560e3c8c.webp'),
+  ('50000000-0000-0000-0000-000000000004', '40000000-0000-0000-0000-000000000003', '30000000-0000-0000-0000-000000000014', 'Technopole Foum El Oued, Laayoune', 'https://um6p.ma', -13.420000, 27.070000, 'http://localhost:3002/api/public/images/universities/7d2e111e-38b2-489d-9b99-933b58cf3339.webp')
 ON CONFLICT (id) DO NOTHING;
 
 -- ---- seed: user_interested_categories ----
@@ -734,7 +746,6 @@ INSERT INTO programs (
   university_id,
   category_id,
   output_diploma_id,
-  title,
   years_of_study,
   monthly_subscription,
   max_age,
@@ -748,7 +759,6 @@ INSERT INTO programs (
   '40000000-0000-0000-0000-000000000001',
   (SELECT id FROM categories WHERE name = 'SCIENCE_TECHNOLOGY_ENGINEERING'),
   (SELECT id FROM diplomas WHERE code = 'INGENIEUR_ETAT'),
-  'Computer Engineering',
   5,
   0,
   22,
@@ -762,7 +772,6 @@ INSERT INTO programs (
   '40000000-0000-0000-0000-000000000002',
   (SELECT id FROM categories WHERE name = 'ECONOMICS_TRADE_MANAGEMENT'),
   (SELECT id FROM diplomas WHERE code = 'MASTER_RECHERCHE'),
-  'Finance and Markets',
   2,
   3500.00,
   NULL,
@@ -776,7 +785,6 @@ INSERT INTO programs (
   '40000000-0000-0000-0000-000000000003',
   (SELECT id FROM categories WHERE name = 'SCIENCE_TECHNOLOGY_ENGINEERING'),
   (SELECT id FROM diplomas WHERE code = 'DOCTORAT'),
-  'Life Sciences',
   3,
   0,
   NULL,

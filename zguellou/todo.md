@@ -1,5 +1,11 @@
+-admin to specific user notif - db - read_at
+-admin broadcast to all users - db - read_at
+-user broadcast to all admins - db - fulfilled - fulfilled by who
+-fav icon
+-seo
 -presentation 3la auth backend kaml
--have a plan about notif
+-privacy 
+-Terms of Service.
 
 COMMIT:
     -
@@ -23,11 +29,6 @@ THEORY
     -The uploaded file is not a valid image error message -> toaster dyal toujana
 #EMAIL:
     -move the authbackend/public pngs into frontend/public to get shown in the email 
--user support email in console google cloud for kharita app - contact info too - update google callback url
--submit app to get verifed by google
--auth tests github actions
--cleanup function on cron tab: cleanupBlacklistedTokens and cleanupPasswordResetTokens with a unified cleanup that also removes expired refresh tokens refreshTokenModel.deleteExpiredTokens
--device management page
 
 KEEP IN MIND
     email:
@@ -54,4 +55,18 @@ next:
 
 once in production:
     -move public images from backend to frontend and update the ASSETS_BASE_URL to the front, and also update the icons path in auth_backend/email.js 
-    -check the env variables for timeout, too many requests etc
+    -email: privacy@kharita.ma contact@kharita.ma legal@kharita.ma
+    -use (Plausible, Umami) for analytics
+    -cloudflare flogin/regiter/form main page
+    -cachi blacklisted tokens - pages 
+    -user support email in console google cloud for kharita app - contact info too - update google callback url
+    -submit app to get verifed by google
+    -auth tests github actions
+    -cleanup function on cron tab: cleanupBlacklistedTokens and cleanupPasswordResetTokens with a unified cleanup that also removes expired refresh tokens refreshTokenModel.deleteExpiredTokens
+    -device management page
+    -implement an ai to help with translation programs/unis/etc
+    -alert mlli yti7 chi service
+    -backup database
+    -trademark logo
+    -logo in email
+    -IP geolocation creati 

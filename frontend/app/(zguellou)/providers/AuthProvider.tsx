@@ -15,7 +15,7 @@ interface AuthContextType {
   isInitialized: boolean;
   getAccessToken: () => string | null;
   setAuth: (token: string, user: User) => void;
-  clearAuth: () => Promise<void>;
+  clearAuth: (options?: { skipServer?: boolean }) => Promise<void>;
   refreshToken: () => Promise<string>;
 }
 
@@ -108,26 +108,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(user);
   }, []);
 
-  const clearAuth = useCallback(async (): Promise<void> => {
-    try {
-      const token = accessTokenRef.current;
-      await fetch(`${process.env.NEXT_PUBLIC_AUTH_API_URL}/api/auth/logout`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: {
-          ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
-          'Content-Type': 'application/json',
-        },
-      });
-    } catch (error) {
-      console.error('Logout API error:', error);
-    } finally {
-      accessTokenRef.current = null;
-      setAccessToken(null);
-      setUser(null);
-      router.replace('/login');
-    }
-  }, [router]);
+  const clearAuth = useCallback(
+    async (options?: { skipServer?: boolean }): Promise<void> => {
+      try {
+        if (!options?.skipServer) {
+          const token = accessTokenRef.current;
+          await fetch(`${process.env.NEXT_PUBLIC_AUTH_API_URL}/api/auth/logout`, {
+            method: 'POST',
+            credentials: 'include',
+            headers: {
+              ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+              'Content-Type': 'application/json',
+            },
+          });
+        }
+      } catch (error) {
+        console.error('Logout API error:', error);
+      } finally {
+        accessTokenRef.current = null;
+        setAccessToken(null);
+        setUser(null);
+        router.replace('/login');
+      }
+    },
+    [router]
+  );
 
   return (
     <AuthContext.Provider value={{ user, accessToken, isInitialized, getAccessToken, setAuth, clearAuth, refreshToken }}>

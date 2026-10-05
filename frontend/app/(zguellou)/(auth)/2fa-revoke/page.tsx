@@ -126,12 +126,13 @@ export default function TwoFactorRevokePage() {
                     </div>
                   )}
 
-                  <div className="flex flex-col sm:flex-row gap-3">
+                  <div className="flex flex-col md:flex-row gap-3">
                     <FullButton
                       onClick={handleRevoke}
                       disabled={loading}
                       backgroundColor="var(--color-error-light)"
-                      className="flex-1 justify-between h-16 text-[15px] sm:text-xl flex-row!"
+                      className="md:o 
+                      flex-1 justify-between h-16 text-[15px] sm:text-xl flex-row!"
                     >
                       {loading
                         ? t('revoke.revoking').toUpperCase()

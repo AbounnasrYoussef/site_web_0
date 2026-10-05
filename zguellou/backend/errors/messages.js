@@ -174,6 +174,11 @@ const messages = {
     fr: 'Votre nouveau mot de passe doit être différent de votre ancien mot de passe.',
     ar: 'يجب أن تكون كلمة المرور الجديدة مختلفة عن كلمة المرور السابقة.',
   },
+  'auth/admin_cannot_delete': {
+    en: 'Admin accounts cannot be deleted. Please contact the system owner.',
+    fr: 'Les comptes administrateur ne peuvent pas être supprimés. Veuillez contacter le propriétaire du système.',
+    ar: 'لا يمكن حذف حسابات المدير. يرجى التواصل مع مالك النظام.',
+  },
 
   'success/logged_out': {
     fr: 'Déconnecté avec succès.',
@@ -205,7 +210,17 @@ const messages = {
     fr: 'Mot de passe modifié avec succès.',
     ar: 'تم تغيير كلمة المرور بنجاح.',
   },
-
+  'success/account_deleted': {
+    en: 'Your account has been deleted successfully.',
+    fr: 'Votre compte a été supprimé avec succès.',
+    ar: 'تم حذف حسابك بنجاح.',
+  },
+  
+  'validation/email_confirmation_mismatch': {
+    en: 'The email you entered does not match your account email.',
+    fr: 'L’adresse e-mail saisie ne correspond pas à celle de votre compte.',
+    ar: 'البريد الإلكتروني الذي أدخلته لا يتطابق مع بريد حسابك.',
+  },
   'validation/password_length_invalid': {
     fr: 'Le mot de passe doit contenir entre 8 et 128 caractères.',
     en: 'Password must be between 8 and 128 characters.',

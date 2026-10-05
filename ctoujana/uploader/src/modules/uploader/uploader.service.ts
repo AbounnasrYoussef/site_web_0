@@ -91,7 +91,7 @@ export class UploaderService {
     private checkExtension(filename: string) {
         if (!filename)
             return false
-        const extension = extname(filename)
+        const extension = extname(filename).toLowerCase()
         if (!extension || !['.png', '.jpeg', '.jpg', '.webp'].includes(extension))
             return false
         return true

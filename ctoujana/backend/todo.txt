@@ -1,0 +1,5 @@
+==> find a way to push unis 3 times diff languages without actually having them duplicated ✅
+==> start the endpoint that inserts the university into the db as admin ✅
+==> add favorite button on the card in universities and also add switcher ⏳
+
+==> make abreviation @unique in db

@@ -12,8 +12,11 @@ import PersonalInfoSection from './PersonalInfoSection';
 import AcademicInfoSection from './AcademicInfoSection';
 import InterestsSection from './InterestsSection';
 import SecuritySettingsSection from './SecuritySettingsSection';
+import DeleteAccountModal from './DeleteAccountModal';
 import { isValidImage } from '@/utils/validateImage';
 import ProfileSkeleton from './ProfileSkeleton';
+
+import { toast } from "sonner"
 
 type Diploma = { id: string; rank: number; name: string };
 type Field = { id: string; name: string };
@@ -34,6 +37,9 @@ export default function ProfilePage() {
   const [saveError, setSaveError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Delete my account
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
 
   // Personal draft
   const [draft, setDraft] = useState({ first_name: '', last_name: '', year_of_birth: '' });
@@ -110,7 +116,7 @@ export default function ProfilePage() {
     };
 
     fetchProfile();
-  }, [isInitialized, user, accessToken, router, clearAuth]);
+  }, [isInitialized, user, authFetch]);
 
   useEffect(() => {
     if (fullUser) {
@@ -131,7 +137,7 @@ export default function ProfilePage() {
       }
     };
     fetchCategories();
-  }, [authFetch]);
+  }, [isInitialized, user, authFetch]);
 
   useEffect(() => {
     if (!isInitialized || !user) return;
@@ -146,7 +152,7 @@ export default function ProfilePage() {
       }
     };
     fetchDiplomas();
-  }, [authFetch]);
+  }, [isInitialized, user, authFetch]);
 
   // Fetch fields when diploma changes in edit mode
   useEffect(() => {
@@ -261,7 +267,8 @@ export default function ProfilePage() {
 
     const error = await isValidImage(t, file);
     if (error) {
-      setFieldErrors((prev) => ({ ...prev, profile_pic: error }));
+      // setFieldErrors((prev) => ({ ...prev, profile_pic: error }));
+      toast.error(error);
       e.target.value = '';
       return;
     }
@@ -341,6 +348,14 @@ export default function ProfilePage() {
       setFullUser(data.user);
       setIsEditing(false);
       setFieldErrors({});
+
+      if (data.warnings) {
+        toast.error(data.warnings.message);
+        setFieldErrors((prev) => ({
+          ...prev,
+          [data.warnings.field]: data.warnings.message,
+        }));
+      }
 
     } catch (err: any) {
       if (err?.errors?.length) {
@@ -479,13 +494,34 @@ export default function ProfilePage() {
     return data;
   };
 
-  // Guards ──────────────────────────────────────────────────
+  const handleDeleteAccount = async (value: string) => {
+    const isGoogleUser = fullUser?.auth_provider === 'GOOGLE';
+
+    const res = await authFetch(
+      `${process.env.NEXT_PUBLIC_AUTH_API_URL}/api/auth/delete-my-account`,
+      {
+        method: 'POST',
+        body: JSON.stringify(isGoogleUser ? { confirmationEmail: value } : { password: value }),
+      }
+    );
+
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      throw new Error(data.error || data.errors?.[0]?.message || t('profile.deleteAccount.error'));
+    }
+
+    await clearAuth({ skipServer: true });
+  };
+
+  // Guards 
   if (!isInitialized || loadingProfile || !user) return (
     <ProfileSkeleton />
   );
   if (!fullUser) return null;
 
-  // Helpers ──────────────────────────────────────────────────
+
+  const isAdmin = user?.role === 'ADMIN' || user?.role === 'SUPERADMIN';
+
   const truncateName = (str: string | null | undefined, maxLength: number = 20): string => {
     if (!str) return '-';
     if (str.length <= maxLength) return str;
@@ -496,9 +532,8 @@ export default function ProfilePage() {
   const labelStyle = 'text-xs uppercase font-bold text-(--color-text) mb-1 whitespace-nowrap';
   const inputStyle = 'bg-(--color-surface) text-lg font-semibold border-2 px-3 py-2 whitespace-nowrap';
 
-  // Render ──────────────────────────────────────────────────
   return (
-    <main className="min-h-screen p-6 dotted-bg">
+    <main className="flex-1 p-6 dotted-bg">
       <div className="max-w-7xl mx-auto">
         <ProfileHeader
           fullUser={fullUser}
@@ -513,6 +548,8 @@ export default function ProfilePage() {
           onSave={saveProfile}
           onCancel={cancelEditing}
           onClearAuth={clearAuth}
+          onDeleteAccount={() => setShowDeleteModal(true)}
+          canDelete={!isAdmin}
           onFileChange={handleFileChange}
           fileInputRef={fileInputRef}
           sharedStyles={sharedStyles}
@@ -578,7 +615,7 @@ export default function ProfilePage() {
           <SecuritySettingsSection
             fullUser={fullUser}
             is2FAEnabled={is2FAEnabled}
-            isAdmin={user?.role === 'ADMIN' || user?.role === 'SUPERADMIN'}
+            isAdmin={isAdmin}
             isGoogleUser={fullUser?.auth_provider === 'GOOGLE'}
             isLocked={isLocked}
             toggling2FA={toggling2FA}
@@ -602,6 +639,14 @@ export default function ProfilePage() {
           />
         </div>
       </div>
+      {showDeleteModal && !isAdmin && (
+        <DeleteAccountModal
+          isGoogleUser={fullUser?.auth_provider === 'GOOGLE'}
+          onConfirm={handleDeleteAccount}
+          onClose={() => setShowDeleteModal(false)}
+          t={t}
+        />
+      )}
     </main>
   );
 }

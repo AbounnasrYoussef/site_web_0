@@ -1,26 +1,26 @@
 'use client';
 
-import { forwardRef, useState, InputHTMLAttributes, ReactNode, ChangeEvent, useId } from 'react';
+import { forwardRef, useState, useId, useRef, useEffect, InputHTMLAttributes, ReactNode, ChangeEvent } from 'react';
 import { FiEye, FiEyeOff } from 'react-icons/fi';
 import Link from 'next/link';
 import { useTranslations } from 'next-intl';
 
 interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
   label?: string;
+  icon?: ReactNode; 
   forgotPasswordHref?: string;
-  icon?: ReactNode;
   helper?: ReactNode;
   error?: string | null;
   containerClassName?: string;
   inputDir?: 'ltr' | 'rtl' | undefined;
+  multiline?: boolean;
 }
 
 const EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
 
-const Input = forwardRef<HTMLInputElement, InputProps>(({
+const Input = forwardRef<HTMLInputElement | HTMLTextAreaElement, InputProps>(({
   label,
   icon,
-  id: externalId,
   helper,
   error: externalError,
   type,
@@ -28,6 +28,7 @@ const Input = forwardRef<HTMLInputElement, InputProps>(({
   containerClassName,
   inputDir,
   forgotPasswordHref,
+  multiline,
   value,
   onChange,
   onBlur,
@@ -37,23 +38,32 @@ const Input = forwardRef<HTMLInputElement, InputProps>(({
   const t = useTranslations();
   const [showPassword, setShowPassword] = useState(false);
   const [internalError, setInternalError] = useState<string | null>(null);
-  const [touched, setTouched] = useState(false);
-
-  // Generate a unique ID for accessibility if no ID is passed in
-  const generatedId = useId();
-  const inputId = externalId || generatedId;
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
   const isPassword = type === 'password';
   const isEmail = type === 'email';
   const inputType = isPassword ? (showPassword ? 'text' : 'password') : type;
   const dir = inputDir || (type === 'email' || type === 'password' ? 'ltr' : undefined);
-  const linkTabIndex = typeof props.tabIndex === 'number' ? props.tabIndex + 1 : undefined;
 
+  const inputId = useId();
 
   const error = externalError || internalError;
 
-  const handleBlur = (e: React.FocusEvent<HTMLInputElement>) => {
-    setTouched(true);
+  const resizeTextarea = () => {
+    const el = textareaRef.current;
+    if (el) {
+      el.style.height = 'auto';
+      el.style.height = `${el.scrollHeight}px`;
+    }
+  };
+
+  useEffect(() => {
+    if (multiline) {
+      resizeTextarea();
+    }
+  }, [value, multiline]);
+
+  const handleBlur = (e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const val = e.target.value as string;
 
     if (isEmail && val && !EMAIL_REGEX.test(val)) {
@@ -63,19 +73,34 @@ const Input = forwardRef<HTMLInputElement, InputProps>(({
     }
 
     if (onBlur) {
-      onBlur(e);
+      onBlur(e as React.FocusEvent<HTMLInputElement>);
     }
   };
 
-  const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
+  const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     if (internalError) {
       setInternalError(null);
     }
 
     if (onChange) {
-      onChange(e);
+      onChange(e as ChangeEvent<HTMLInputElement>);
     }
   };
+
+  const sharedClassName = `
+    w-full border-2 p-3 text-sm font-semibold 
+    shadow-none 
+    transition-all duration-100 
+    focus:outline-none 
+    bg-(--color-surface) text-(--color-text)
+    ${isPassword ? 'pr-10' : ''}
+    ${
+      error
+        ? 'border-red-600 bg-red-50 focus:shadow-[2px_2px_0_0_red-600]'
+        : 'border-(--color-text) focus:shadow-[2px_2px_0_0_var(--color-text)]'
+    }
+    ${className ?? ''}
+  `;
 
   const message = error || helper;
 
@@ -83,10 +108,7 @@ const Input = forwardRef<HTMLInputElement, InputProps>(({
     <div className={`flex flex-col gap-1 ${containerClassName ?? ''}`}>
       <div className="flex items-center justify-between">
         {label && (
-          <label 
-            htmlFor={inputId} 
-            className="text-sm font-bold uppercase tracking-wide text-(--color-text) flex gap-2 items-center"
-          >
+          <label htmlFor={inputId} className="text-sm font-bold uppercase tracking-wide text-(--color-text) flex items-center gap-2">
             {icon && icon}
             {label}
           </label>
@@ -95,7 +117,6 @@ const Input = forwardRef<HTMLInputElement, InputProps>(({
           <Link
             href={forgotPasswordHref}
             className="text-xs font-medium text-(--color-primary) hover:underline transition-all"
-            tabIndex={linkTabIndex}
           >
             {t('forgotPassword.title1')}
           </Link>
@@ -103,31 +124,41 @@ const Input = forwardRef<HTMLInputElement, InputProps>(({
       </div>
 
       <div className="relative">
-        <input
-          ref={ref}
-          id={inputId} // Associate with the label
-          type={inputType}
-          value={value}
-          onChange={handleChange}
-          onBlur={handleBlur}
-          className={`
-            w-full border-2 p-3 text-sm font-semibold 
-            shadow-none 
-            transition-all duration-100 
-            focus:outline-none 
-            bg-(--color-surface) text-(--color-text)
-            ${isPassword ? 'pr-10' : ''}
-            ${
-              error
-                ? 'border-red-600 bg-red-50 focus:shadow-[2px_2px_0_0_red-600]'
-                : 'border-(--color-text) focus:shadow-[2px_2px_0_0_var(--color-text)]'
-            }
-            ${className ?? ''}
-          `}
-          dir={dir}
-          required={required}
-          {...props}
-        />
+        {multiline ? (
+          <textarea
+            ref={(el) => {
+              textareaRef.current = el;
+              if (typeof ref === 'function') {
+                ref(el);
+              } else if (ref) {
+                (ref as React.MutableRefObject<HTMLTextAreaElement | null>).current = el;
+              }
+            }}
+            id={inputId}
+            value={value}
+            onChange={handleChange}
+            onBlur={handleBlur}
+            rows={1}
+            onInput={resizeTextarea}
+            className={`resize-none overflow-hidden ${sharedClassName}`}
+            dir={dir}
+            required={required}
+            {...(props as InputHTMLAttributes<HTMLTextAreaElement>)}
+          />
+        ) : (
+          <input
+            ref={ref as React.Ref<HTMLInputElement>}
+            type={inputType}
+            value={value}
+            id={inputId}
+            onChange={handleChange}
+            onBlur={handleBlur}
+            className={sharedClassName}
+            dir={dir}
+            required={required}
+            {...props}
+          />
+        )}
 
         {isPassword && (
           <button
@@ -143,7 +174,7 @@ const Input = forwardRef<HTMLInputElement, InputProps>(({
       </div>
 
       {message && (
-        <span className={`text-xs break-words whitespace-normal block ${error ? 'text-red-700 font-semibold' : 'text-(--color-muted)'}`}>
+        <span className={`text-xs ${error ? 'text-red-700 font-semibold' : 'text-(--color-muted)'}`}>
           {message}
         </span>
       )}

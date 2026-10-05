@@ -78,7 +78,10 @@ export default function LoginForm() {
       }
 
       setAuth(data.accessToken, data.user);
-      router.push('/profile?login=success');
+      if (data.user.role == 'ADMIN' || data.user.role == 'SUPERADMIN')
+        router.push('/dashboard');
+      else
+        router.push('/profile');
     },
 
     onError: (error: any) => {
@@ -171,6 +174,7 @@ export default function LoginForm() {
         label={t('login.email.label')}
         placeholder={t('login.email.placeholder')}
         dir="ltr"
+        type='email'
         value={email}
         onChange={handleEmailChange}
         error={fieldErrors.email}

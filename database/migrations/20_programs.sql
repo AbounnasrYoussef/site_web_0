@@ -3,7 +3,6 @@ CREATE TABLE IF NOT EXISTS programs (
   university_id UUID REFERENCES universities(id) ON DELETE CASCADE NOT NULL,
   category_id UUID REFERENCES categories(id) ON DELETE CASCADE NOT NULL,
   output_diploma_id UUID REFERENCES diplomas(id) ON DELETE CASCADE NULL,
-  title VARCHAR(255) NOT NULL,
   years_of_study SMALLINT NOT NULL,
   monthly_subscription DECIMAL(10, 2) NULL CHECK (monthly_subscription >= 0),
   max_age SMALLINT NULL  CHECK (max_age > 0),

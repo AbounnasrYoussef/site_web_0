@@ -15,17 +15,18 @@ type ContactDashboardProps = {
   apiUrl?: string;
 };
 
-export default function ContactDashboard({ apiUrl = 'http://localhost:8000/contact' }: ContactDashboardProps) {
+export default function ContactDashboard({ apiUrl = 'http://localhost:5003/contact' }: ContactDashboardProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
-  const t = useTranslations("dashboard")
+  const t = useTranslations('dashboard');
 
   useEffect(() => {
     async function fetchMessages() {
       try {
         const response = await fetch(apiUrl);
-        const data = await response.json();
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const data: Message[] = await response.json();
         setMessages(data);
       } catch {
         setError(true);
@@ -63,11 +64,13 @@ export default function ContactDashboard({ apiUrl = 'http://localhost:8000/conta
             </thead>
             <tbody>
               {messages.map((msg) => (
-                <tr key={msg.id} className="border-t-2 border-(--color-text)">
+                <tr key={msg.id} className="border-t-2 border-(--color-text) align-top">
                   <td className="p-4 font-bold">{msg.name}</td>
                   <td className="p-4">{msg.email}</td>
-                  <td className="p-4 text-(--color-muted)">{msg.message}</td>
-                  <td className="p-4 text-sm">
+                  <td className="p-4 text-(--color-muted) max-w-md break-words whitespace-pre-wrap">
+                    {msg.message}
+                  </td>
+                  <td className="p-4 text-sm whitespace-nowrap">
                     {new Date(msg.created_at).toLocaleString()}
                   </td>
                 </tr>

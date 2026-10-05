@@ -1,4 +1,3 @@
-import Navbar from '@/components/navbar';
 import { getTranslations } from 'next-intl/server';
 import Link from 'next/link';
 

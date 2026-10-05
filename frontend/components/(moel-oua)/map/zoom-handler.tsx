@@ -2,36 +2,40 @@
 
 import { useEffect } from "react";
 import { useMap } from "react-leaflet";
-import { CityGroup } from "./types";
-import { DEFAULT_CENTER } from "./data";
+import { MOROCCO_BOUNDS, FIT_PADDING, CITY_ZOOM, RESET_ZOOM } from "./data";
 
 interface ZoomHandlerProps {
-  selectedCity: string | null;
-  cityGroups: CityGroup[];
-  onMapMove: (zoom: number) => void;
+  focus: [number, number] | null;
+  onZoomOut: () => void;
 }
 
-export function ZoomHandler({ selectedCity, cityGroups, onMapMove }: ZoomHandlerProps) {
+export function ZoomHandler({ focus, onZoomOut }: ZoomHandlerProps) {
   const map = useMap();
 
   useEffect(() => {
-    if (selectedCity) {
-      const city = cityGroups.find((c) => c.city === selectedCity);
-      if (city) {
-        map.setView([city.coordinates[1], city.coordinates[0]], 12, { animate: true });
-      }
-    } else {
-      map.setView(DEFAULT_CENTER, 5.2, { animate: true });
-    }
-  }, [selectedCity, map, cityGroups]);
+    const fitCountry = () => {
+      map.setMinZoom(map.getBoundsZoom(MOROCCO_BOUNDS, false, FIT_PADDING.multiplyBy(2)));
+      if (!focus) map.fitBounds(MOROCCO_BOUNDS, { padding: FIT_PADDING });
+    };
+
+    fitCountry();
+    if (focus) map.setView(focus, CITY_ZOOM, { animate: true });
+
+    map.on("resize", fitCountry);
+    return () => {
+      map.off("resize", fitCountry);
+    };
+  }, [map, focus]);
 
   useEffect(() => {
-    const handleZoomEnd = () => onMapMove(map.getZoom());
+    const handleZoomEnd = () => {
+      if (map.getZoom() < RESET_ZOOM) onZoomOut();
+    };
     map.on("zoomend", handleZoomEnd);
     return () => {
       map.off("zoomend", handleZoomEnd);
     };
-  }, [map, onMapMove]);
+  }, [map, onZoomOut]);
 
   return null;
 }

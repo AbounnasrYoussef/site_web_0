@@ -115,6 +115,15 @@ const changeOwnPasswordRateLimit = rateLimit({
   handler,
 });
 
+const deleteAccountRateLimit = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 5,
+  keyGenerator: (req) => `delete-account:${req.user?.id || req.ip}`,
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler,
+});
+
 module.exports = {
   loginIpRateLimit,
   registerIpRateLimit,
@@ -127,4 +136,5 @@ module.exports = {
   profileUpdateRateLimit,
   toggle2faRateLimit,
   changeOwnPasswordRateLimit,
+  deleteAccountRateLimit
 };

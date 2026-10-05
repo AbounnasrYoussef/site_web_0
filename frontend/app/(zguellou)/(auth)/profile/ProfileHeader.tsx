@@ -3,6 +3,8 @@
 import FullButton from '@/components/full-button';
 import EditIcon from '@/public/icons/auth/EditIcon';
 import LogoutIcon from '@/public/icons/auth/LogoutIcon';
+import { FaTrash } from 'react-icons/fa';
+import { LuTrash } from 'react-icons/lu';
 
 export default function ProfileHeader({
   fullUser,
@@ -16,11 +18,13 @@ export default function ProfileHeader({
   onSave,
   onCancel,
   onClearAuth,
+  onDeleteAccount,
   onFileChange,
   fileInputRef,
   sharedStyles,
   t,
 }: any) {
+
   return (
     <div className={`${sharedStyles} flex flex-wrap items-center justify-between gap-4`}>
       {/* Profile picture */}
@@ -46,8 +50,8 @@ export default function ProfileHeader({
             </button>
             )}
 
-            <input ref={fileInputRef} type="file" accept="image/png,image/jpeg" capture="user" className="hidden" onChange={onFileChange} />
-            {fieldErrors.profile_pic && <span className="text-xs whitespace-normal block text-red-700 font-semibold mt-1">{fieldErrors.profile_pic}</span>}
+            <input ref={fileInputRef} type="file" accept="image/png,image/jpeg,image/webp" capture="user" className="hidden" onChange={onFileChange} />
+            {/* {fieldErrors.profile_pic && <span className="text-xs whitespace-normal block text-red-700 font-semibold mt-1">{fieldErrors.profile_pic}</span>} */}
         </div>
         {/* Name & role */}
         <div>
@@ -81,9 +85,12 @@ export default function ProfileHeader({
             <FullButton text={t('profile.edit')} onClick={onEdit} className="flex-1 justify-center whitespace-nowrap" backgroundColor="var(--color-highlight)">
               <EditIcon className="w-5 h-5 text-(--color-text)" />
             </FullButton>
-            <FullButton onClick={onClearAuth} text={t('profile.logout')} className="uppercase flex-1 justify-center whitespace-nowrap" backgroundColor="var(--color-error)">
-              <LogoutIcon className="w-5 h-5 text-(--color-text)" />
-            </FullButton>
+            {fullUser.role !== "ADMIN" && fullUser.role !== "SUPERADMIN" && 
+              <FullButton onClick={onDeleteAccount} text={t('profile.deleteAccount.button')} className="uppercase flex-1 justify-center whitespace-nowrap" backgroundColor="var(--color-error-light)">
+                <LuTrash className='w-5 h-5' />
+              </FullButton>
+            }
+
           </>
         )}
       </div>

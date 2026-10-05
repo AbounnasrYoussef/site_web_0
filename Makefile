@@ -9,7 +9,7 @@ build:
 
 reset:
 	docker compose down -v
-	@make up
+	@make build
 	@until docker compose exec -T db pg_isready -U admin; do sleep 1; done
 
 destroy:
@@ -18,3 +18,11 @@ destroy:
 
 psql:
 	docker compose exec db psql -U admin -d tawjih
+
+#---------------------moel-oua-----------------------
+.PHONY: moel-oua-install moel-oua
+moel-oua-install:
+	pip install -r moel-oua/backend/requirements.txt
+
+moel-oua:
+	cd moel-oua/backend && gunicorn --bind 0.0.0.0:5001 --reload app:app

@@ -3,7 +3,7 @@
 let iconList = [];
 
 try {
-  const req = require.context('../../../', true, /Icon\.tsx$/);
+  const req = require.context('../../../../', true, /Icon\.tsx$/);
 
   iconList = req.keys()
     .map((key) => {

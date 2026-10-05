@@ -10,17 +10,8 @@ export class UploaderController {
 
     constructor(private uploaderService: UploaderService) {}
 
-    // call it from frontend like this
-
-    // const formData = new FormData()
-    // formData.append('image', actual_image)
-    // formData.append('upload_dir', 'subfolder')
-
-
-    // khsni nzid rate-limiting ajmi f had 2 endpoints darori to prevent abuse
-
     @Post('/')
-    // @UseGuards(AuthGuard)
+    @UseGuards(AuthGuard)
     @UseInterceptors(
         FileInterceptor('image', {
             storage: memoryStorage(),
@@ -32,7 +23,7 @@ export class UploaderController {
     }
 
     @Delete('/')
-    // @UseGuards(AuthGuard)
+    @UseGuards(AuthGuard)
     deleteImage(@Query('lang') lang: string, @Req() req: Request, @Res() res: Response) {
         return this.uploaderService.deleteImage(req, res, lang)
     }

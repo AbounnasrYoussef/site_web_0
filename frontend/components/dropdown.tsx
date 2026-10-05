@@ -13,6 +13,7 @@ interface DropdownProps {
     maxVisible?: number;
     placeholder: string;
     label: string;
+    error?: string | null;
 }
 
 export default function Dropdown({
@@ -23,6 +24,7 @@ export default function Dropdown({
     maxVisible = 5,
     placeholder,
     label,
+    error
 }: DropdownProps) {
     const [isOpen, setIsOpen] = useState(false);
     const [highlightedIndex, setHighlightedIndex] = useState(-1);
@@ -177,7 +179,10 @@ export default function Dropdown({
                     else setHighlightedIndex(-1);
                 }}
                 onKeyDown={handleTriggerKeyDown}
-                className={`w-full border-2 border-(--color-text) p-3 text-sm font-semibold bg-(--color-surface) text-(--color-text) cursor-pointer flex justify-between items-center transition-all focus:outline-none focus:shadow-[2px_2px_0_0_var(--color-text)] hover:shadow-[2px_2px_0_0_var(--color-text)] ${isOpen ? 'shadow-[2px_2px_0_0_var(--color-text)]' : ''
+                className={`w-full border-2 p-3 text-sm font-semibold bg-(--color-surface) text-(--color-text) cursor-pointer flex justify-between items-center transition-all focus:outline-none ${error
+                        ? 'border-red-600 bg-red-50 hover:shadow-[2px_2px_0_0_red-600] focus:shadow-[2px_2px_0_0_red-600]'
+                        : 'border-(--color-text) hover:shadow-[2px_2px_0_0_var(--color-text)] focus:shadow-[2px_2px_0_0_var(--color-text)]'
+                    } ${isOpen ? (error ? 'shadow-[2px_2px_0_0_red-600]' : 'shadow-[2px_2px_0_0_var(--color-text)]') : ''
                     }`}
             >
                 <span className={`text-xs sm:text-sm ${value ? 'text-(--color-text)' : 'text-gray-400'}`}>
@@ -232,6 +237,12 @@ export default function Dropdown({
                         <div className="p-3 text-sm text-gray-400">No options available</div>
                     )}
                 </div>
+            )}
+
+            {error && (
+                <span className="text-xs text-red-700 font-semibold">
+                    {error}
+                </span>
             )}
         </div>
     );

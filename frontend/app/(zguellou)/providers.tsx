@@ -20,7 +20,6 @@ export default function Providers({ children, locale, messages }: ProvidersProps
       <AuthProvider>
         <NextIntlClientProvider locale={locale} messages={messages} timeZone="Africa/Casablanca">
           {children}
-          {/* <ReactQueryDevtools initialIsOpen={false} /> for debugging */}
         </NextIntlClientProvider>
       </AuthProvider>
     </QueryClientProvider>
